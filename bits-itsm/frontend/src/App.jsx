@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import StudentDashboard from './pages/StudentDashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import TechnicianDashboard from './pages/TechnicianDashboard.jsx';
+import { apiRequest, apiPost } from './api.js';
 
-const loginNotice = 'Login interface ready. Backend authentication will be connected in the next development phase.';
+const loginNotice = 'Sign in with your institutional email and password to access campus IT support.';
 
 export default function App() {
   // Development previews only; these do not authenticate a user.
@@ -14,15 +15,55 @@ export default function App() {
     if (preview === 'technician') return <TechnicianDashboard />;
   }
 
-  return <LoginPage />;
+  return <AuthenticatedApp />;
 }
 
-function LoginPage() {
+function AuthenticatedApp() {
+  const [user, setUser] = useState(null);
+  const [checking, setChecking] = useState(true);
+  const [message, setMessage] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    apiRequest('auth/me').then((account) => { if (active) setUser(account); })
+      .catch((error) => { if (active && error.status !== 401) setMessage(error.message); })
+      .finally(() => { if (active) setChecking(false); });
+    return () => { active = false; };
+  }, []);
+
+  async function logout() {
+    setSigningOut(true);
+    setMessage('');
+    try {
+      await apiPost('auth/logout');
+      setUser(null);
+    } catch (error) {
+      if (error.status === 401) setUser(null);
+      else setMessage(error.message);
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
+  if (checking) return <main className="session-loading" role="status">Checking your session…</main>;
+  if (!user) return <LoginPage initialMessage={message} onLogin={(account) => { setMessage(''); setUser(account); }} />;
+
+  const Dashboard = { STUDENT: StudentDashboard, TECHNICIAN: TechnicianDashboard, ADMIN: AdminDashboard }[user.role];
+  const sessionNotice = <div className="dashboard-preview-note">
+    <div><p><strong>Signed in as {user.name}</strong> · {user.email}</p>{message && <p role="alert">{message}</p>}</div>
+    <button className="report-clear" type="button" disabled={signingOut} onClick={logout}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
+  </div>;
+  return Dashboard ? <Dashboard sessionUser={user} sessionNotice={sessionNotice} /> : <main>{sessionNotice}<p role="alert">Your account role is not supported.</p></main>;
+}
+
+function LoginPage({ onLogin, initialMessage }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(initialMessage || '');
+  const [submitting, setSubmitting] = useState(false);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -32,20 +73,21 @@ function LoginPage() {
     setMessage('');
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (submitting) return;
     const nextErrors = {};
-    const trimmedEmail = email.trim();
     //*regex used here to identify to allow bits official id to have access to it portal
-    if (!trimmedEmail) {
+    if (!email) {
       nextErrors.email = 'Please enter your institutional email address.';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    } else if (email !== email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       nextErrors.email = 'Please enter a valid email address.';
-    } else if (!/^[^\s@]+@hyderabad\.bits-pilani\.ac\.in$/i.test(trimmedEmail)) {
+    } else if (email.length > 254 || !/^[A-Za-z0-9_%+-]+(?:\.[A-Za-z0-9_%+-]+)*@hyderabad\.bits-pilani\.ac\.in$/i.test(email)) {
       nextErrors.email = 'Use your @hyderabad.bits-pilani.ac.in email address.';
     }
 
     if (!password.trim()) nextErrors.password = 'Please enter your password.';
+    else if (new TextEncoder().encode(password).length > 72) nextErrors.password = 'Password must be at most 72 bytes.';
 
     setErrors(nextErrors);
     setMessage('');
@@ -54,8 +96,16 @@ function LoginPage() {
       return;
     }
 
-    // Frontend validation only. Connect backend authentication in a later phase.
-    setMessage(loginNotice);
+    setSubmitting(true);
+    try {
+      const account = await apiPost('auth/login', { email, password });
+      setPassword('');
+      onLogin(account);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -87,7 +137,7 @@ function LoginPage() {
             <h2 id="signin-title">Welcome Back</h2>
             <p className="signin-subtitle">Sign in using your BITS Hyderabad account</p>
 
-            <form onSubmit={handleSubmit} noValidate>
+            <form onSubmit={handleSubmit} noValidate aria-busy={submitting}>
               <div className="field">
                 <div className="floating-input">
                   <input id="email" name="email" type="email" autoComplete="username" placeholder=" " value={email} onChange={handleChange} required spellCheck={false} autoCapitalize="none" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'email-error' : 'email-hint'} />
@@ -105,7 +155,7 @@ function LoginPage() {
                 <p className="field-error" id="password-error" role="alert">{errors.password}</p>
               </div>
 
-              <button className="submit-button" type="submit">Sign In <span aria-hidden="true">→</span></button>
+              <button className="submit-button" type="submit" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign In'} <span aria-hidden="true">→</span></button>
               <p className="status-message" role="status" aria-hidden={!message}>{message || loginNotice}</p>
             </form>
 

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Button27 from '../components/ui/button-27.jsx';
 import Notifications from '../Notifications.jsx';
+import LiveIncidents from '../LiveIncidents.jsx';
+import AssignmentManagement from '../AssignmentManagement.jsx';
 import { incidentStatuses, readableLabel } from '../MyIncidents.jsx';
 import { demoIncidents, users, technicians, technicianSkills, transferRequests, collaborationRequests, services, incidentCategories, slaPolicies, auditLogs, investigationNotes, adminNotifications, relatedIncidentExamples, recommendationExamples, isActive, technicianWorkload } from '../demoData.js';
 
@@ -343,7 +345,11 @@ function Users({ open, preview }) {
   return <>
     <div className="incident-filters"><Filter label="Search name or institutional email" name="user-search" value={search} onChange={(event) => setSearch(event.target.value)} /><Filter label="Role" name="role" value={role} options={optionsFor(userRoles)} onChange={(event) => setRole(event.target.value)} /><Filter label="Account status" name="account-status" value={status} options={optionsFor(accountStates)} onChange={(event) => setStatus(event.target.value)} /><button className="report-clear" onClick={() => { setSearch(''); setRole(''); setStatus(''); }}>Clear Filters</button><button className="incident-view" onClick={() => preview(userSpecification(null, 'Add User'))}>Add User preview</button></div>
     <p className="report-guidance" role="status">{records.length} of {users.length} sample users</p>
-    <Table title="User accounts" headers={['User ID', 'Full Name', 'Institutional Email', 'Role', 'Account Status', 'Created Date', 'Action']} rows={records.map((user) => [user.id, user.name, user.email, user.role, <Badge value={user.status} />, dateText(user.createdAt), <button className="incident-view" onClick={() => open('user', user.id)}>View {user.id}</button>])} />
+    {[['STUDENT', 'Students'], ['TECHNICIAN', 'Technicians'], ['ADMIN', 'Administrators']]
+      .filter(([sectionRole]) => !role || sectionRole === role)
+      .map(([sectionRole, title]) => <Table key={sectionRole} title={title}
+        headers={['User ID', 'Full Name', 'Institutional Email', 'Account Status', 'Created Date', 'Action']}
+        rows={records.filter((user) => user.role === sectionRole).map((user) => [user.id, user.name, user.email, <Badge value={user.status} />, dateText(user.createdAt), <button className="incident-view" onClick={() => open('user', user.id)}>View {user.id}</button>])} />)}
   </>;
 }
 
@@ -503,7 +509,7 @@ function TechnicianDetails({ technician, open, setAction, navigate }) {
   </>;
 }
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ sessionUser, sessionNotice }) {
   const [page, setPage] = useState('Dashboard');
   const [readIds, setReadIds] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(() => window.matchMedia('(min-width: 701px)').matches);
@@ -517,7 +523,7 @@ export default function AdminDashboard() {
       actionPanel.current?.scrollIntoView({ block: 'nearest' });
     }
   }, [action]);
-  const admin = users.find((user) => user.role === 'ADMIN');
+  const admin = sessionUser || users.find((user) => user.role === 'ADMIN');
 
   function open(type, id) {
     setSelection({ type, id });
@@ -551,6 +557,10 @@ export default function AdminDashboard() {
     default: content = <DashboardHome open={open} navigate={navigate} />;
   }
 
+  if (sessionUser && ['Dashboard', 'All Incidents'].includes(page)) content = <LiveIncidents role="ADMIN" />;
+  const assignmentPages = { 'Assignment Requests': 'transfer', 'Collaboration Requests': 'collaboration', 'Manage Technicians': 'workload', 'Assignment Strategies': 'strategy' };
+  if (sessionUser && assignmentPages[page]) content = <AssignmentManagement key={page} mode={assignmentPages[page]} role="ADMIN" userId={sessionUser.id} />;
+
   const selectedUser = selection?.type === 'user' ? users.find((user) => user.id === selection.id) : null;
   return <div className={`student-dashboard admin-portal${isMenuOpen ? '' : ' menu-collapsed'}`}>
     <aside className="dashboard-sidebar" id="admin-sidebar" hidden={!isMenuOpen}>
@@ -559,10 +569,11 @@ export default function AdminDashboard() {
       <p className="dashboard-sidebar-note">BITS Pilani<br />Hyderabad Campus</p>
     </aside>
     <div className="dashboard-workspace">
-      <header className="dashboard-topbar"><div className="dashboard-heading"><Button27 isOpen={isMenuOpen} onToggle={() => setIsMenuOpen(!isMenuOpen)} controls="admin-sidebar" /><h1>{page === 'Dashboard' ? 'Administrator Dashboard' : page}</h1></div><div className="dashboard-profile"><span className="dashboard-avatar" aria-hidden="true">DA</span><div><strong>{admin.name}</strong><span>Administrator · Demo</span></div></div></header>
+      <header className="dashboard-topbar"><div className="dashboard-heading"><Button27 isOpen={isMenuOpen} onToggle={() => setIsMenuOpen(!isMenuOpen)} controls="admin-sidebar" /><h1>{page === 'Dashboard' ? 'Administrator Dashboard' : page}</h1></div><div className="dashboard-profile"><span className="dashboard-avatar" aria-hidden="true">{admin.name.split(' ').map((part) => part[0]).join('')}</span><div><strong>{admin.name}</strong><span>{sessionUser ? 'Administrator' : 'Administrator · Demo'}</span></div></div></header>
       <main className="dashboard-content">
-        <div className="dashboard-preview-note"><p><strong>Development preview</strong> · Fictional records. No authenticated session. All administrative actions are unsaved proposals.</p><div className="preview-links"><a href="?preview=student">Student preview</a><a href="/">Back to login</a></div></div>
+        {sessionNotice || <div className="dashboard-preview-note"><p><strong>Development preview</strong> · Fictional records. This preview does not authenticate an account. All administrative actions are unsaved proposals.</p><div className="preview-links"><a href="?preview=student">Student preview</a><a href="/">Back to login</a></div></div>}
         <div className="dashboard-welcome"><div><h2>{page === 'Dashboard' ? 'Campus IT overview' : page}</h2><p>Review incidents, teams and service health in one place.</p></div></div>
+        {sessionUser && !['Dashboard', 'All Incidents', ...Object.keys(assignmentPages)].includes(page) && <p className="report-guidance">Development preview — this module still uses sample data and does not save changes.</p>}
         {content}
       </main>
       <footer className="dashboard-footer">BITSolve — BITS Hyderabad IT Support</footer>

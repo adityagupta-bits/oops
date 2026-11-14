@@ -1,0 +1,5 @@
+package com.bits.itsm.user;
+
+public enum TechnicianSkill {
+    NETWORK, HARDWARE, SOFTWARE, DATABASE, AUTHENTICATION, SECURITY, APPLICATION_SUPPORT, CLOUD, STORAGE
+}

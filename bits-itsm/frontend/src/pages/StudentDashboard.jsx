@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import ReportIncident from '../ReportIncident.jsx';
 import Button27 from '../components/ui/button-27.jsx';
 import Notifications from '../Notifications.jsx';
+import LiveIncidents from '../LiveIncidents.jsx';
 import MyIncidents, { IncidentSummary, incidentStatuses, readableLabel } from '../MyIncidents.jsx';
 //* some of the sample entries 
 import { demoIncidents as sampleIncidents, users, studentNotifications } from '../demoData.js';
 //* gives basic overview of present status of incidents 
-export default function StudentDashboard({ incidents: allIncidents = sampleIncidents }) {
+export default function StudentDashboard({ incidents: allIncidents = sampleIncidents, sessionUser, sessionNotice }) {
   const [page, setPage] = useState('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(() => window.matchMedia('(min-width: 701px)').matches);
   const [studentId, setStudentId] = useState('S101');
@@ -43,19 +44,21 @@ export default function StudentDashboard({ incidents: allIncidents = sampleIncid
             <h1>{page === 'report' ? 'Report Incident' : page === 'incidents' ? 'My Incidents' : page === 'notifications' ? 'Notifications' : page === 'profile' ? 'Student Profile' : 'Student Dashboard'}</h1>
           </div>
           <div className="dashboard-profile">
-            <span className="dashboard-avatar" aria-hidden="true">{student.name.split(' ').map((part) => part[0]).join('')}</span>
-            <div><strong>{student.name}</strong><span>Student · Demo</span></div>
+            <span className="dashboard-avatar" aria-hidden="true">{(sessionUser || student).name.split(' ').map((part) => part[0]).join('')}</span>
+            <div><strong>{(sessionUser || student).name}</strong><span>{sessionUser ? 'Student' : 'Student · Demo'}</span></div>
           </div>
         </header>
 
         <main className="dashboard-content">
-          <div className="dashboard-preview-note">
-            <p><strong>Development preview</strong> · Fictional demo data. No authenticated session.</p>
+          {sessionNotice || <div className="dashboard-preview-note">
+            <p><strong>Development preview</strong> · Sample data. This preview does not authenticate an account.</p>
             <div className="preview-links"><a href="?preview=technician">Technician preview</a><a href="?preview=admin">Administrator preview</a><a href="/">Back to login</a></div>
-          </div>
+          </div>}
 
-          <div className="report-field technician-selector"><label htmlFor="demo-student">Demo student (preview only)</label><select id="demo-student" value={studentId} onChange={(event) => { setStudentId(event.target.value); navigate('dashboard'); }}>{users.filter((user) => user.role === 'STUDENT').map((user) => <option key={user.id} value={user.id}>{user.name} ({user.studentId})</option>)}</select></div>
-          {page === 'report' ? <ReportIncident onCancel={() => navigate('dashboard')} /> : page === 'incidents' ? <MyIncidents key={studentId} incidents={incidents} initialIncidentId={selectedIncidentId} /> : page === 'notifications' ? <Notifications records={studentNotifications.filter((item) => item.studentId === studentId)} readIds={readIds} onRead={(id) => setReadIds((previous) => previous.includes(id) ? previous : [...previous, id])} canOpen={(item) => incidents.some((incident) => incident.id === item.incidentId)} onOpen={(item) => { navigate('incidents'); setSelectedIncidentId(item.incidentId); }} /> : page === 'profile' ? <section className="report-form student-detail-section"><h2>Student Profile</h2><dl className="incident-details">{[['Name', student.name], ['Student ID', student.studentId], ['Institutional Email', student.email], ['Reported Incidents', incidents.length]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><p className="report-guidance">Read-only sample profile. No authenticated account session.</p></section> : <>
+          {!sessionUser && <div className="report-field technician-selector"><label htmlFor="demo-student">Demo student (preview only)</label><select id="demo-student" value={studentId} onChange={(event) => { setStudentId(event.target.value); navigate('dashboard'); }}>{users.filter((user) => user.role === 'STUDENT').map((user) => <option key={user.id} value={user.id}>{user.name} ({user.studentId})</option>)}</select></div>}
+          {sessionUser && ['dashboard', 'incidents'].includes(page) ? <LiveIncidents role="STUDENT" /> : <>
+          {sessionUser && page === 'notifications' && <p className="report-guidance">Notifications preview only — sample data.</p>}
+          {page === 'report' ? <ReportIncident live={Boolean(sessionUser)} onCancel={() => navigate('dashboard')} /> : page === 'incidents' ? <MyIncidents key={studentId} incidents={incidents} initialIncidentId={selectedIncidentId} /> : page === 'notifications' ? <Notifications records={studentNotifications.filter((item) => item.studentId === studentId)} readIds={readIds} onRead={(id) => setReadIds((previous) => previous.includes(id) ? previous : [...previous, id])} canOpen={(item) => incidents.some((incident) => incident.id === item.incidentId)} onOpen={(item) => { navigate('incidents'); setSelectedIncidentId(item.incidentId); }} /> : page === 'profile' ? <section className="report-form student-detail-section"><h2>Student Profile</h2><dl className="incident-details">{(sessionUser ? [['Name', sessionUser.name], ['Institutional Email', sessionUser.email], ['Role', sessionUser.role]] : [['Name', student.name], ['Student ID', student.studentId], ['Institutional Email', student.email], ['Reported Incidents', incidents.length]]).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><p className="report-guidance">{sessionUser ? 'Read-only account details.' : 'Read-only sample profile.'}</p></section> : <>
           <section className="dashboard-welcome" aria-labelledby="dashboard-welcome-title">
             <div>
               <h2 id="dashboard-welcome-title">Welcome back, Student!</h2>
@@ -97,6 +100,7 @@ export default function StudentDashboard({ incidents: allIncidents = sampleIncid
               </div>
             )}
           </section>
+          </>}
           </>}
         </main>
 

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { apiRequest, apiPost } from './api.js';
 import { incidentCategories, services } from './demoData.js';
 import { readableLabel } from './MyIncidents.jsx';
 
@@ -6,7 +7,7 @@ const emptyForm = { title: '', category: '', affectedService: '', description: '
 const validationNotice = 'Form validated successfully. Backend integration is pending. No incident has been saved.';
 
 // Provisional options; replace these with backend data when available.
-const dropdowns = [
+const previewDropdowns = [
   { name: 'category', label: 'Incident Category', options: incidentCategories.filter((category) => category.status === 'ACTIVE').map((category) => ({ value: category.name, label: readableLabel(category.name) })) },
   { name: 'affectedService', label: 'Affected Service', options: [...services.map((service) => service.name), 'Other'].map((label) => ({ value: label, label })) },
   { name: 'impact', label: 'Impact', options: [
@@ -21,20 +22,35 @@ const dropdowns = [
   ] },
 ];
 
-export default function ReportIncident({ onCancel }) {
+export default function ReportIncident({ onCancel, live = false }) {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [validated, setValidated] = useState(false);
+  const [options, setOptions] = useState(null);
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (!live) return;
+    let active = true;
+    setMessage('');
+    apiRequest('incidents/options').then(data => { if (active) setOptions(data); })
+      .catch(error => { if (active) setMessage(error.message); });
+    return () => { active = false; };
+  }, [live, retry]);
+  const dropdowns = live ? previewDropdowns.map(field => field.name === 'category' ? { ...field, options: options?.categories || [] } : field.name === 'affectedService' ? { ...field, options: options?.services || [] } : field) : previewDropdowns;
 
   function handleChange(event) {
     const { name, value } = event.target;
     setForm((previous) => ({ ...previous, [name]: value }));
     setErrors((previous) => ({ ...previous, [name]: '' }));
     setValidated(false);
+    setMessage('');
   }
 // function to get 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (busy) return;
     const nextErrors = {};
     const title = form.title.trim();
     const description = form.description.trim();
@@ -60,15 +76,23 @@ export default function ReportIncident({ onCancel }) {
       return;
     }
 
-    // Retain the validated payload for a future POST /api/incidents integration.
     setForm({ ...form, title, description });
-    setValidated(true);
+    if (!live) { setValidated(true); return; }
+    setBusy(true); setMessage('');
+    try {
+      const saved = await apiPost('incidents', { ...form, title, description });
+      setMessage(`Incident ${saved.id} saved successfully. Status: ${readableLabel(saved.status)}.`);
+      setForm(emptyForm);
+      setValidated(true);
+    } catch (error) { setMessage(error.message); }
+    finally { setBusy(false); }
   }
 
   function clearForm() {
     setForm(emptyForm);
     setErrors({});
     setValidated(false);
+    setMessage('');
   }
 
   function renderDropdown(field) {
@@ -95,7 +119,8 @@ export default function ReportIncident({ onCancel }) {
       </div>
 
       <form className="report-form" onSubmit={handleSubmit} onReset={clearForm} noValidate>
-        <p className="report-guidance">All fields are required. Service options are provisional demo data.</p>
+        <p className="report-guidance">{live ? 'All fields are required. Priority is pending classification rules.' : 'All fields are required. Service options are provisional demo data.'}</p>
+        {live && !options && <p role="status">{message || 'Loading available categories and services…'} <button type="button" className="report-clear" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
         <div className="report-field">
           <label htmlFor="incident-title">Incident Title</label>
           <input id="incident-title" name="title" type="text" value={form.title} onChange={handleChange} required maxLength={100}
@@ -115,14 +140,14 @@ export default function ReportIncident({ onCancel }) {
         </div>
 
         <div className="report-row">{dropdowns.slice(2).map(renderDropdown)}</div>
-        <p className="report-guidance">Priority will be calculated by the Java backend from impact and urgency.</p>
+        <p className="report-guidance">Priority remains pending until priority calculation is implemented.</p>
 
         <div className="report-actions">
-          <button className="submit-button" type="submit">Submit Incident</button>
-          <button className="report-clear" type="reset">Clear Form</button>
+          <button className="submit-button" type="submit" disabled={busy || (live && !options)}>{busy ? 'Saving…' : 'Submit Incident'}</button>
+          <button className="report-clear" type="reset" disabled={busy}>Clear Form</button>
           <button className="report-clear" type="button" onClick={onCancel}>Back to Dashboard</button>
         </div>
-        <p className="status-message" role="status" aria-hidden={!validated}>{validationNotice}</p>
+        <p className="status-message" role="status" aria-hidden={live ? !message : !validated}>{live ? message : validationNotice}</p>
       </form>
     </section>
   );

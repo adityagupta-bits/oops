@@ -1,3 +1,5 @@
+import LiveIncidents from '../LiveIncidents.jsx';
+import AssignmentManagement from '../AssignmentManagement.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import Button27 from '../components/ui/button-27.jsx';
 import TechnicianOperations, { operationLabels } from './TechnicianOperations.jsx';
@@ -328,7 +330,7 @@ function TechnicianProfile({ technician, workload, onView }) {
   </>;
 }
 
-export default function TechnicianDashboard({ incidents = demoIncidents }) {
+export default function TechnicianDashboard({ incidents = demoIncidents, sessionUser, sessionNotice }) {
   const [technicianId, setTechnicianId] = useState(technicians[0].id);
   const [page, setPage] = useState('dashboard');
   const [selectedId, setSelectedId] = useState(null);
@@ -376,9 +378,15 @@ export default function TechnicianDashboard({ incidents = demoIncidents }) {
     case 'workload': content = <MyWorkload key={technicianId} technician={technician} workload={workload} onView={viewDetails} onAction={openOperation} />; break;
     case 'knowledge': content = <KnowledgeBase incidents={incidents} accessibleIds={accessibleIds} onView={viewDetails} />; break;
     case 'notifications': content = <NotificationCenter key={technicianId} technicianId={technicianId} accessibleIds={accessibleIds} readIds={readIds} onRead={(id) => setReadIds((previous) => previous.includes(id) ? previous : [...previous, id])} onView={viewDetails} />; break;
-    case 'profile': content = <TechnicianProfile technician={technician} workload={workload} onView={viewDetails} />; break;
+    case 'profile': content = sessionUser ? <DetailSection title="Technician Profile" items={[
+      ['Name', sessionUser.name], ['Institutional Email', sessionUser.email], ['Role', sessionUser.role],
+    ]} /> : <TechnicianProfile technician={technician} workload={workload} onView={viewDetails} />; break;
     default: content = <DashboardHome incidents={assigned} technician={technician} workload={workload} onView={viewDetails} onAction={openOperation} onNavigate={navigate} />;
   }
+
+  if (sessionUser && ['dashboard', 'assigned', 'investigation'].includes(page)) content = <LiveIncidents role="TECHNICIAN" team={page === 'investigation'} />;
+  if (sessionUser && page === 'team') content = <><LiveIncidents role="TECHNICIAN" team /><AssignmentManagement mode="collaboration" role="TECHNICIAN" userId={sessionUser.id} /></>;
+  if (sessionUser && ['transfers', 'workload'].includes(page)) content = <AssignmentManagement key={page} mode={page === 'transfers' ? 'transfer' : 'workload'} role="TECHNICIAN" userId={sessionUser.id} />;
 
   return <div className={`student-dashboard technician-portal${isMenuOpen ? '' : ' menu-collapsed'}`}>
     <aside className="dashboard-sidebar" id="technician-sidebar" hidden={!isMenuOpen}>
@@ -391,11 +399,12 @@ export default function TechnicianDashboard({ incidents = demoIncidents }) {
     <div className="dashboard-workspace">
       <header className="dashboard-topbar">
         <div className="dashboard-heading"><Button27 isOpen={isMenuOpen} onToggle={() => setIsMenuOpen(!isMenuOpen)} controls="technician-sidebar" /><h1 ref={heading} tabIndex={-1}>BITSolve · {page === 'details' ? 'Incident Details' : page === 'dashboard' ? 'Technician Dashboard' : pages[page]}</h1></div>
-        <div className="dashboard-profile"><span className="dashboard-avatar" aria-hidden="true">DT</span><div><strong>{technician.name}</strong><span>Technician · Demo</span></div></div>
+        <div className="dashboard-profile"><span className="dashboard-avatar" aria-hidden="true">{(sessionUser || technician).name.split(' ').map((part) => part[0]).join('')}</span><div><strong>{(sessionUser || technician).name}</strong><span>{sessionUser ? 'Technician' : 'Technician · Demo'}</span></div></div>
       </header>
       <main className="dashboard-content">
-        <div className="dashboard-preview-note"><p><strong>Development-only Technician preview</strong> · Fictional records. No authenticated session or saved changes.</p><div className="preview-links"><a href="?preview=student">Student preview</a><a href="?preview=admin">Administrator preview</a><a href="/">Back to login</a></div></div>
-        <div className="report-field technician-selector"><label htmlFor="demo-technician">Demo technician (preview only)</label><select id="demo-technician" value={technicianId} onChange={changeTechnician}>{technicians.map((person) => <option key={person.id} value={person.id}>{person.name} ({person.id})</option>)}</select></div>
+        {sessionNotice || <div className="dashboard-preview-note"><p><strong>Development-only Technician preview</strong> · Fictional records. This preview does not authenticate an account or save changes.</p><div className="preview-links"><a href="?preview=student">Student preview</a><a href="?preview=admin">Administrator preview</a><a href="/">Back to login</a></div></div>}
+        {!sessionUser && <div className="report-field technician-selector"><label htmlFor="demo-technician">Demo technician (preview only)</label><select id="demo-technician" value={technicianId} onChange={changeTechnician}>{technicians.map((person) => <option key={person.id} value={person.id}>{person.name} ({person.id})</option>)}</select></div>}
+        {sessionUser && !['dashboard', 'assigned', 'investigation', 'profile', 'team', 'transfers', 'workload'].includes(page) && <p className="report-guidance">Development preview — this module still uses sample data.</p>}
         {content}
       </main>
       <footer className="dashboard-footer">BITSolve — BITS Hyderabad IT Support</footer>

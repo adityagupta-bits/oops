@@ -1,0 +1,99 @@
+package com.bits.itsm.auth;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import com.bits.itsm.user.Role;
+import com.bits.itsm.user.User;
+import com.bits.itsm.user.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+    private final AuthenticationManager authenticationManager;
+    private final SecurityContextRepository contexts;
+    private final SessionAuthenticationStrategy sessions;
+    private final UserRepository users;
+
+    public AuthController(AuthenticationManager authenticationManager, SecurityContextRepository contexts,
+            SessionAuthenticationStrategy sessions, UserRepository users) {
+        this.authenticationManager = authenticationManager;
+        this.contexts = contexts;
+        this.sessions = sessions;
+        this.users = users;
+    }
+
+    public record LoginRequest(@NotBlank @Size(max = 254) String email,
+            @NotBlank @Size(max = 72) String password) {
+        @Override
+        public String toString() { return "LoginRequest[credentials redacted]"; }
+    }
+
+    public record Account(Long id, String name, String email, Role role) {
+        static Account from(User user) {
+            return new Account(user.getId(), user.getName(), user.getEmail(), user.getRole());
+        }
+    }
+
+    @GetMapping("/csrf")
+    public Map<String, String> csrf(CsrfToken token) {
+        return Map.of("headerName", token.getHeaderName(), "token", token.getToken());
+    }
+
+    @PostMapping("/login")
+    public Account login(@Valid @RequestBody LoginRequest credentials,
+            HttpServletRequest request, HttpServletResponse response) {
+        String email = EmailValidator.normalize(credentials.email());
+        if (credentials.password().getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new IllegalArgumentException("Password exceeds BCrypt's input limit.");
+        }
+        Authentication authentication = authenticationManager.authenticate(
+                UsernamePasswordAuthenticationToken.unauthenticated(email, credentials.password()));
+        Account account = account(authentication);
+        sessions.onAuthentication(authentication, request, response);
+        var context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        // Explicitly persist authentication so the session cookie works on later requests.
+        contexts.saveContext(context, request, response);
+        return account;
+    }
+
+    @GetMapping("/me")
+    public Account me(Authentication authentication) { return account(authentication); }
+
+    private Account account(Authentication authentication) {
+        User user = users.findByEmail(authentication.getName())
+                .filter(User::isEnabled).orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+        return Account.from(user);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<Map<String, String>> authenticationFailure() {
+        return ResponseEntity.status(401).body(Map.of("message", "Invalid email or password."));
+    }
+
+    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
+            IllegalArgumentException.class})
+    ResponseEntity<Map<String, String>> invalidRequest() {
+        return ResponseEntity.badRequest().body(Map.of("message",
+                "Enter a valid institutional email without surrounding whitespace and a password of at most 72 bytes."));
+    }
+}
