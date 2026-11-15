@@ -114,12 +114,12 @@ export default function ReportIncident({ onCancel, live = false }) {
       <div className="dashboard-welcome">
         <div>
           <h2 id="report-title">Report an IT Incident</h2>
-          <p>Describe your issue so our campus IT support team can assist you.</p>
+          <p>Describe the issue you're experiencing so the IT support team can assist you.</p>
         </div>
       </div>
 
       <form className="report-form" onSubmit={handleSubmit} onReset={clearForm} noValidate>
-        <p className="report-guidance">{live ? 'All fields are required. Priority is pending classification rules.' : 'All fields are required. Service options are provisional demo data.'}</p>
+        <p className="report-guidance">{live ? 'All fields are required. Priority is calculated during classification.' : 'All fields are required. Service options are provisional demo data.'}</p>
         {live && !options && <p role="status">{message || 'Loading available categories and services…'} <button type="button" className="report-clear" onClick={() => setRetry(value => value + 1)}>Retry</button></p>}
         <div className="report-field">
           <label htmlFor="incident-title">Incident Title</label>
@@ -140,7 +140,7 @@ export default function ReportIncident({ onCancel, live = false }) {
         </div>
 
         <div className="report-row">{dropdowns.slice(2).map(renderDropdown)}</div>
-        <p className="report-guidance">Priority remains pending until priority calculation is implemented.</p>
+        <p className="report-guidance">Priority will be calculated by the Java backend from impact and urgency.</p>
 
         <div className="report-actions">
           <button className="submit-button" type="submit" disabled={busy || (live && !options)}>{busy ? 'Saving…' : 'Submit Incident'}</button>
