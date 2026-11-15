@@ -41,6 +41,10 @@ public class Incident {
     private Instant resolvedAt;
     private Instant verifiedAt;
     private Instant closedAt;
+    private Instant responseDeadline;
+    private Instant resolutionDeadline;
+    private Integer responseTargetMinutes;
+    private Integer resolutionTargetMinutes;
     @Column(length = 2000) private String resolutionSummary;
     @Column(length = 2000) private String resolutionSteps;
     @OneToMany(mappedBy = "incident", cascade = CascadeType.PERSIST) @OrderBy("createdAt ASC, id ASC")
@@ -63,7 +67,26 @@ public class Incident {
     }
 
     // State changes are centralized here; callers cannot set an arbitrary status.
-    public void classify(Category category) { require(IncidentStatus.NEW); this.category = java.util.Objects.requireNonNull(category); move(IncidentStatus.CLASSIFIED); }
+    public void classify(Category category) {
+        require(IncidentStatus.NEW); this.category = java.util.Objects.requireNonNull(category);
+        priority = calculatedPriority(); move(IncidentStatus.CLASSIFIED);
+    }
+    public Priority calculatedPriority() {
+        int score = impact.ordinal() + urgency.ordinal();
+        return score == 4 ? Priority.P1 : score == 3 ? Priority.P2 : score == 2 ? Priority.P3 : Priority.P4;
+    }
+    // Snapshot targets once; policy edits and transfers never restart clocks.
+    public void captureSla(SlaPolicy policy) {
+        if (responseDeadline != null) return;
+        if (priority != policy.getPriority()) throw new IllegalArgumentException("SLA priority mismatch.");
+        responseTargetMinutes = policy.getResponseMinutes(); resolutionTargetMinutes = policy.getResolutionMinutes();
+        responseDeadline = createdAt.plusSeconds(responseTargetMinutes * 60L);
+        resolutionDeadline = createdAt.plusSeconds(resolutionTargetMinutes * 60L);
+    }
+    public Instant getResponseDeadline() { return responseDeadline; }
+    public Instant getResolutionDeadline() { return resolutionDeadline; }
+    public SlaClock.Status responseSla(Instant now) { return responseDeadline == null ? null : SlaClock.status(responseDeadline, responseTargetMinutes, acknowledgedAt, now); }
+    public SlaClock.Status resolutionSla(Instant now) { return resolutionDeadline == null ? null : SlaClock.status(resolutionDeadline, resolutionTargetMinutes, resolvedAt, now); }
     public void assign(Technician technician) {
         require(IncidentStatus.CLASSIFIED);
         if (!technician.isEnabled() || !technician.isAvailable()) throw new IllegalStateException("Technician is disabled or unavailable.");

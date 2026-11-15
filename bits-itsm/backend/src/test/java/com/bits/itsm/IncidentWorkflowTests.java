@@ -14,7 +14,7 @@ class IncidentWorkflowTests {
         Incident i = investigating(); i.resolve("Replaced cable", "Tested connectivity"); i.verify(); i.close();
         assertEquals(IncidentStatus.CLOSED, i.getStatus());
         assertNotNull(i.getAcknowledgedAt()); assertNotNull(i.getResolvedAt()); assertNotNull(i.getVerifiedAt()); assertNotNull(i.getClosedAt());
-        assertEquals(Incident.Priority.PENDING, i.getPriority());
+        assertEquals(Incident.Priority.P2, i.getPriority());
         assertThrows(IllegalStateException.class, i::start);
     }
     @Test void rejectsSkippedTransitions() {

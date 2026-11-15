@@ -19,8 +19,9 @@ public class IncidentService {
     private final IncidentRepository incidents;
     private final UserRepository users;
     private final AssignmentSettingsRepository assignmentSettings;
-    public IncidentService(IncidentRepository incidents, UserRepository users, AssignmentSettingsRepository assignmentSettings) {
-        this.incidents = incidents; this.users = users; this.assignmentSettings = assignmentSettings;
+    private final SlaPolicies slaPolicies;
+    public IncidentService(IncidentRepository incidents, UserRepository users, AssignmentSettingsRepository assignmentSettings, SlaPolicies slaPolicies) {
+        this.incidents = incidents; this.users = users; this.assignmentSettings = assignmentSettings; this.slaPolicies = slaPolicies;
     }
 
     private User actor(String email) {
@@ -89,6 +90,8 @@ public class IncidentService {
     public View classify(Long id, Classification request, String email) {
         User user = actor(email); Incident incident = editable(id, user, Role.ADMIN);
         incident.classify(request.category());
+        slaPolicies.capture(incident);
+        incident.record(user, "PRIORITY_ASSIGNED", "Priority: " + incident.getPriority(), STUDENT_VISIBLE);
         return finish(incident, user, "CLASSIFIED", "Category confirmed: " + request.category());
     }
     @Transactional
