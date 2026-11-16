@@ -32,7 +32,7 @@ export default function Notifications({ records = [], readIds = [], onRead, onOp
   if (live && selectedId) return <><button className="report-clear" onClick={() => setSelectedId(null)}>Back to notifications</button><LiveIncidents role={role} team={role === 'TECHNICIAN'} initialIncidentId={selectedId} /></>;
   return <>
     <div className="dashboard-welcome"><div><h2>Notifications</h2><p>{live ? 'Your account notifications.' : 'Fictional in-app notification history.'}</p></div></div>
-    {!live && <p className="report-guidance">Mark as Read changes this UI only and resets on refresh. Future Java delivery will support in-app notifications and simulated email. No email is sent here.</p>}
+    {!live && <p className="report-guidance">This development preview uses sample records. Mark as Read resets on refresh. Sign in to use persistent notifications; this preview sends no email.</p>}
     {loading && <p role="status">Loading notifications?</p>}
     {error && <p role="alert">{error} <button className="report-clear" onClick={load}>Retry</button></p>}
     <div className="report-field technician-selector"><label htmlFor="notification-filter">Show notifications</label><select id="notification-filter" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">All</option><option value="unread">Unread</option><option value="read">Read</option></select></div>

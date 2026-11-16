@@ -1,3 +1,11 @@
+const sessionEvents = new EventTarget();
+
+// App listens here so every page returns to login when the session expires.
+export function onSessionExpired(callback) {
+  sessionEvents.addEventListener('expired', callback);
+  return () => sessionEvents.removeEventListener('expired', callback);
+}
+
 export async function apiRequest(path, options = {}) {
   let response;
   try {
@@ -6,6 +14,9 @@ export async function apiRequest(path, options = {}) {
     throw new Error('Unable to connect to the BITSolve server.');
   }
   const data = await response.json().catch(() => null);
+  if (response.status === 401 && path !== 'auth/login' && path !== 'auth/me') {
+    sessionEvents.dispatchEvent(new Event('expired'));
+  }
   if (!response.ok || !data) {
     const error = new Error(response.status === 401 && path !== 'auth/login' ? 'Please sign in again. Your session may have expired.' : response.status >= 500 || !data ? 'Unable to connect to the BITSolve server.' : data.message || 'The request could not be completed.');
     error.status = response.status;

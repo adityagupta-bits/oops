@@ -22,6 +22,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {"spring.datasource.url=${BITSOLVE_TEST_DB_URL}", "bitsolve.demo.seed-enabled=true", "spring.jpa.show-sql=false"})
 @AutoConfigureMockMvc @ActiveProfiles("dev")
 class PostgresAssignmentTests {
+    @org.junit.jupiter.api.BeforeEach void configureTestService() {
+        // Explicit test fixture; production initialization never supplies criticality.
+        testCatalog.update("SERVICE", "CAMPUS_WIFI", "Campus Wi-Fi", true, com.bits.itsm.incident.Incident.Level.MEDIUM);
+    }
+    @Autowired com.bits.itsm.incident.CatalogService testCatalog;
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
     @Autowired JdbcTemplate jdbc;

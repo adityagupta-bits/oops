@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import StudentDashboard from './pages/StudentDashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import TechnicianDashboard from './pages/TechnicianDashboard.jsx';
-import { apiRequest, apiPost } from './api.js';
+import { apiRequest, apiPost, onSessionExpired } from './api.js';
 
 const loginNotice = 'Sign in with your institutional email and password to access campus IT support.';
 
@@ -26,10 +26,16 @@ function AuthenticatedApp() {
 
   useEffect(() => {
     let active = true;
+    const unsubscribe = onSessionExpired(() => {
+      active = false;
+      setUser(null);
+      setChecking(false);
+      setMessage('Please sign in again. Your session has expired or your account is unavailable.');
+    });
     apiRequest('auth/me').then((account) => { if (active) setUser(account); })
       .catch((error) => { if (active && error.status !== 401) setMessage(error.message); })
       .finally(() => { if (active) setChecking(false); });
-    return () => { active = false; };
+    return () => { active = false; unsubscribe(); };
   }, []);
 
   async function logout() {

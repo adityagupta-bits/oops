@@ -76,17 +76,11 @@ public class Incident {
     }
 
     // State changes are centralized here; callers cannot set an arbitrary status.
-    public void classify(Category category) {
-        classify(category, calculatedPriority());
-    }
     public void classify(Category category, Priority calculated) {
         require(IncidentStatus.NEW);
         if (calculated == null || calculated == Priority.PENDING) throw new IllegalArgumentException("A calculated priority is required.");
         this.category = java.util.Objects.requireNonNull(category);
         priority = calculated; move(IncidentStatus.CLASSIFIED);
-    }
-    public Priority calculatedPriority() {
-        return new com.bits.itsm.priority.MultiplicativePriorityStrategy().calculate(impact, urgency, Level.MEDIUM);
     }
     // Snapshot targets once; policy edits and transfers never restart clocks.
     public void captureSla(SlaPolicy policy) {

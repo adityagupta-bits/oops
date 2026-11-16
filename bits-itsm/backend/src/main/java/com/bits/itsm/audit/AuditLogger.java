@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.UUID;
 
-/** Observer that turns every incident event into an audit record. */
+/** Saves what happened, who did it, and when it happened. */
 @Component
 public class AuditLogger implements IncidentObserver {
 

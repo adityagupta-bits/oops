@@ -9,7 +9,7 @@ public class CatalogEntry {
     @Column(nullable = false) private String code;
     @Column(nullable = false, length = 100) private String label;
     @Column(nullable = false) private boolean enabled = true;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private Incident.Level criticality = Incident.Level.MEDIUM;
+    @Enumerated(EnumType.STRING) private Incident.Level criticality;
     protected CatalogEntry() { }
     public String getId() { return id; }
     public String getKind() { return kind; }
@@ -18,8 +18,10 @@ public class CatalogEntry {
     public boolean isEnabled() { return enabled; }
     public Incident.Level getCriticality() { return criticality; }
     public void update(String label, boolean enabled, Incident.Level criticality) {
+        if ("SERVICE".equals(kind) && enabled && criticality == null)
+            throw new IllegalArgumentException("Configure business criticality before enabling this service.");
         this.label = Incident.text(label, 1, 100);
         this.enabled = enabled;
-        this.criticality = java.util.Objects.requireNonNull(criticality);
+        this.criticality = criticality;
     }
 }

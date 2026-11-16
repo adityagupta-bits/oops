@@ -32,7 +32,7 @@ public class AdminManagementController {
     public record NewUser(@NotBlank @Size(max=100) String name, @NotBlank String email, @NotNull Role role,
             @NotBlank @Size(min=8,max=72) String password, @Size(max=30) String studentNumber, TechnicianSkill skill) { }
     public record UserEdit(@NotBlank @Size(max=100) String name, boolean enabled) { }
-    public record CatalogEdit(@NotBlank @Size(max=100) String label, boolean enabled, @NotNull Incident.Level criticality) { }
+    public record CatalogEdit(@NotBlank @Size(max=100) String label, boolean enabled, Incident.Level criticality) { }
     private UserView view(User user) { return new UserView(user.getId(), user.getName(), user.getEmail(), user.getRole(), user.isEnabled(), user instanceof Student student ? student.getStudentNumber() : null); }
     private void audit(Authentication auth, String action, String before, String after, String description) {
         Long actor = users.findByEmail(auth.getName()).filter(User::isEnabled).orElseThrow().getId();

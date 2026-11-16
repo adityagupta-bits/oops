@@ -17,7 +17,8 @@ public class CatalogService implements ApplicationRunner {
         for (var service : Incident.ItService.values()) initialize("SERVICE", service.name(), service.getLabel());
     }
     private void initialize(String kind, String code, String label) {
-        jdbc.update("insert into catalog_entries(id, kind, code, label, enabled, criticality) values (?, ?, ?, ?, true, 'MEDIUM') on conflict (id) do nothing", kind + ":" + code, kind, code, label);
+        // New services stay disabled until an admin chooses their criticality.
+        jdbc.update("insert into catalog_entries(id, kind, code, label, enabled, criticality) values (?, ?, ?, ?, ?, null) on conflict (id) do nothing", kind + ":" + code, kind, code, label, !"SERVICE".equals(kind));
     }
     public List<CatalogEntry> all() { return em.createQuery("select c from CatalogEntry c order by c.kind, c.label", CatalogEntry.class).getResultList(); }
     public CatalogEntry get(String kind, String code) {

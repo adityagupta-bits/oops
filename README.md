@@ -58,6 +58,18 @@ Existing unversioned Phase 4 databases are baselined at version 0. Back up exist
 
 Service/category codes retain the existing Java taxonomy. Administrators can rename and enable/disable entries and set service criticality. Existing incidents keep their original priority/deadline snapshots.
 
+New service records start disabled with no criticality. An administrator must select
+LOW, MEDIUM or HIGH in IT Services before enabling them. V6 permits unconfigured
+values without modifying existing service values or incident snapshots. Review old
+MEDIUM settings manually: previous defaults cannot be distinguished reliably from
+explicit administrator choices. V1-V5 remain unchanged, including V3's historical
+backfill; the live priority calculation no longer has a MEDIUM fallback.
+
+After upgrading a backup copy of the database, verify V6 succeeds, existing incident
+priorities/deadlines and service settings are unchanged, and a newly initialized
+service cannot be used until configured. Test session expiry by removing the browser
+session cookie and opening a protected page; the existing login should appear.
+
 ## Builds and tests
 
 ```powershell

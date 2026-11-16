@@ -44,4 +44,4 @@ The Java backend demonstrates encapsulation, inheritance, polymorphism, abstract
 
 ### Development Status
 
-The three portals use authenticated Java APIs and PostgreSQL. Flyway controls schema upgrades. React can be packaged in the Spring Boot JAR. Email is simulated; category and duplicate suggestions use documented rules.
+The three portals use authenticated Java APIs and PostgreSQL. Flyway controls schema upgrades. React can be packaged in the Spring Boot JAR. Gmail SMTP integration and a persistent student email outbox are implemented; real delivery remains unverified until a sender account is configured and tested. Category and duplicate suggestions use documented rules.

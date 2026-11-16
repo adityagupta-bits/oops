@@ -12,7 +12,7 @@ class SlaClockTests {
         var i = new com.bits.itsm.incident.Incident("Outage", "Campus network is unavailable.", student,
             com.bits.itsm.incident.Incident.Category.NETWORK, com.bits.itsm.incident.Incident.ItService.CAMPUS_WIFI,
             com.bits.itsm.incident.Incident.Level.HIGH, com.bits.itsm.incident.Incident.Level.HIGH);
-        i.classify(com.bits.itsm.incident.Incident.Category.NETWORK);
+        i.classify(com.bits.itsm.incident.Incident.Category.NETWORK, com.bits.itsm.incident.Incident.Priority.P1);
         var policy = new com.bits.itsm.incident.SlaPolicy(com.bits.itsm.incident.Incident.Priority.P1, 5, 30);
         i.captureSla(policy);
         policy.update(15, 120); i.captureSla(policy);

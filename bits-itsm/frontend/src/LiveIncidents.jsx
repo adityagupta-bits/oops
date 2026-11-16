@@ -9,6 +9,7 @@ export default function LiveIncidents({ role, team = false, initialIncidentId })
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
+    // Ignore a late response if the user has already left this page.
     let active = true;
     setLoading(true); setError('');
     Promise.all([apiRequest(team ? 'technician/team-incidents' : role === 'STUDENT' ? 'incidents/my' : 'incidents'), apiRequest('incidents/options')])
@@ -20,9 +21,11 @@ export default function LiveIncidents({ role, team = false, initialIncidentId })
 
   async function action(id, name, payload) {
     const result = await apiPost(`incidents/${id}/${name}`, payload);
-    const updated = name.endsWith('-requests') ? await apiRequest(`incidents/${id}`) : result;
+    // Transfer and collaboration APIs return a request, so fetch the incident again.
+    const isRequest = name.endsWith('-requests');
+    const updated = isRequest ? await apiRequest(`incidents/${id}`) : result;
     setIncidents(previous => previous.map(incident => incident.id === updated.id ? updated : incident));
-    return { incident: updated, request: name.endsWith('-requests') ? result : null };
+    return { incident: updated, request: isRequest ? result : null };
   }
 
   return <>

@@ -23,6 +23,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {"spring.datasource.url=${BITSOLVE_TEST_DB_URL}", "bitsolve.demo.seed-enabled=true", "spring.jpa.show-sql=false"})
 @AutoConfigureMockMvc @ActiveProfiles("dev")
 class PostgresManagementTests {
+    @org.junit.jupiter.api.BeforeEach void configureTestService() {
+        // Explicit test fixture; production initialization never supplies criticality.
+        testCatalog.update("SERVICE", "CAMPUS_WIFI", "Campus Wi-Fi", true, com.bits.itsm.incident.Incident.Level.MEDIUM);
+    }
+    @Autowired com.bits.itsm.incident.CatalogService testCatalog;
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired UserRepository users;
@@ -39,6 +44,31 @@ class PostgresManagementTests {
     }
     long create() throws Exception {
         return call("student01", "POST", "incidents", Map.of("title", "Wifi router outage", "description", "The wifi router cannot connect to the internet in the library.", "category", "NETWORK", "affectedService", "CAMPUS_WIFI", "impact", "HIGH", "urgency", "MEDIUM"), 201).get("id").asLong();
+    }
+    @Test void unconfiguredServiceIsNeverDefaultedAndRequiresAdministratorConfiguration() throws Exception {
+        jdbc.update("delete from catalog_entries where id='SERVICE:CAMPUS_WIFI'");
+        try {
+            testCatalog.run(null);
+            assertNull(testCatalog.get("SERVICE", "CAMPUS_WIFI").getCriticality());
+            assertFalse(testCatalog.get("SERVICE", "CAMPUS_WIFI").isEnabled());
+            testCatalog.run(null);
+            assertNull(testCatalog.get("SERVICE", "CAMPUS_WIFI").getCriticality());
+            call("admin01", "PUT", "admin/catalog/SERVICE/CAMPUS_WIFI", Map.of("label", "Campus Wi-Fi", "enabled", true), 400);
+            // Even malformed legacy data with enabled=true cannot bypass business validation.
+            jdbc.update("update catalog_entries set enabled=true where id='SERVICE:CAMPUS_WIFI'");
+            long before = jdbc.queryForObject("select count(*) from incidents", Long.class);
+            call("student01", "POST", "incidents", Map.of("title", "Wifi unavailable", "description", "Campus wifi is unavailable on all my devices.", "category", "NETWORK", "affectedService", "CAMPUS_WIFI", "impact", "HIGH", "urgency", "MEDIUM"), 409);
+            var config = call("admin01", "GET", "admin/priority-strategy", Map.of(), 200);
+            call("admin01", "POST", "admin/priority-strategy/preview", Map.of("configuration", config, "impact", "HIGH", "urgency", "MEDIUM", "affectedService", "CAMPUS_WIFI"), 409);
+            assertEquals(before, jdbc.queryForObject("select count(*) from incidents", Long.class));
+            for (String level : List.of("LOW", "MEDIUM", "HIGH")) {
+                call("admin01", "PUT", "admin/catalog/SERVICE/CAMPUS_WIFI", Map.of("label", "Campus Wi-Fi", "enabled", true, "criticality", level), 200);
+                testCatalog.run(null);
+                assertEquals(level, testCatalog.get("SERVICE", "CAMPUS_WIFI").getCriticality().name());
+            }
+            long id = create();
+            assertEquals("HIGH", call("admin01", "POST", "incidents/" + id + "/classify", Map.of("category", "NETWORK"), 200).get("criticality").asText());
+        } finally { testCatalog.update("SERVICE", "CAMPUS_WIFI", "Campus Wi-Fi", true, com.bits.itsm.incident.Incident.Level.MEDIUM); }
     }
     @Test void notificationReadStateAndRecipientAuthorizationArePersisted() throws Exception {
         long id = create();

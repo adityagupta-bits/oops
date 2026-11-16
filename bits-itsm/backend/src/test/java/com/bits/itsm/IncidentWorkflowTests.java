@@ -9,7 +9,7 @@ class IncidentWorkflowTests {
     private final Student student = new Student("Student", "student01@hyderabad.bits-pilani.ac.in", "$2-test-only", "TEST");
     private final Technician technician = new Technician("Technician", "technician01@hyderabad.bits-pilani.ac.in", "$2-test-only", "NETWORK");
     private Incident incident() { return new Incident("Network outage", "Campus network is unavailable in the library.", student, Incident.Category.NETWORK, Incident.ItService.CAMPUS_NETWORK, Incident.Level.HIGH, Incident.Level.MEDIUM); }
-    private Incident investigating() { Incident i = incident(); i.classify(Incident.Category.NETWORK); i.assign(technician); i.acknowledge(); i.start(); return i; }
+    private Incident investigating() { Incident i = incident(); i.classify(Incident.Category.NETWORK, Incident.Priority.P2); i.assign(technician); i.acknowledge(); i.start(); return i; }
     @Test void completesOrderedLifecycleAndTimestamps() {
         Incident i = investigating(); i.resolve("Replaced cable", "Tested connectivity"); i.verify(); i.close();
         assertEquals(IncidentStatus.CLOSED, i.getStatus());
@@ -22,7 +22,7 @@ class IncidentWorkflowTests {
         assertThrows(IllegalStateException.class, i::close);
         assertThrows(IllegalStateException.class, i::verify);
         assertThrows(IllegalStateException.class, i::acknowledge);
-        i.classify(Incident.Category.NETWORK); i.assign(technician);
+        i.classify(Incident.Category.NETWORK, Incident.Priority.P2); i.assign(technician);
         assertThrows(IllegalStateException.class, () -> i.resolve("Fixed", "Tested"));
     }
     @Test void rejectsBlankContentAndEmptyResolution() {
@@ -33,7 +33,7 @@ class IncidentWorkflowTests {
         assertEquals(IncidentStatus.IN_PROGRESS, i.getStatus());
     }
     @Test void rejectsUnavailableAndDisabledTechnicians() {
-        Incident i = incident(); i.classify(Incident.Category.NETWORK); technician.setAvailable(false);
+        Incident i = incident(); i.classify(Incident.Category.NETWORK, Incident.Priority.P2); technician.setAvailable(false);
         assertThrows(IllegalStateException.class, () -> i.assign(technician));
         technician.setAvailable(true); technician.setEnabled(false);
         assertThrows(IllegalStateException.class, () -> i.assign(technician));
