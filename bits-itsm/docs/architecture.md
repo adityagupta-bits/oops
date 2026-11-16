@@ -44,4 +44,4 @@ The Java backend demonstrates encapsulation, inheritance, polymorphism, abstract
 
 ### Development Status
 
-Frontend prototype development is underway. Backend integration, persistent storage, and intelligent features are planned for subsequent phases.
+The three portals use authenticated Java APIs and PostgreSQL. Flyway controls schema upgrades. React can be packaged in the Spring Boot JAR. Email is simulated; category and duplicate suggestions use documented rules.

@@ -1,6 +1,5 @@
 package com.bits.itsm.incident;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import com.bits.itsm.user.*;
@@ -20,8 +19,16 @@ public class IncidentService {
     private final UserRepository users;
     private final AssignmentSettingsRepository assignmentSettings;
     private final SlaPolicies slaPolicies;
-    public IncidentService(IncidentRepository incidents, UserRepository users, AssignmentSettingsRepository assignmentSettings, SlaPolicies slaPolicies) {
+    private final CatalogService catalog;
+    private final com.bits.itsm.intelligence.DuplicateDetector duplicates;
+    private final com.bits.itsm.priority.PriorityService priorities;
+    private final com.bits.itsm.intelligence.CategorySuggester categories;
+    private final com.bits.itsm.event.IncidentEventPublisher events;
+    public IncidentService(IncidentRepository incidents, UserRepository users, AssignmentSettingsRepository assignmentSettings, SlaPolicies slaPolicies, com.bits.itsm.priority.PriorityService priorities, com.bits.itsm.intelligence.CategorySuggester categories, com.bits.itsm.event.IncidentEventPublisher events, CatalogService catalog, com.bits.itsm.intelligence.DuplicateDetector duplicates) {
         this.incidents = incidents; this.users = users; this.assignmentSettings = assignmentSettings; this.slaPolicies = slaPolicies;
+        this.priorities = priorities;
+        this.categories = categories;
+        this.events = events; this.catalog = catalog; this.duplicates = duplicates;
     }
 
     private User actor(String email) {
@@ -48,11 +55,9 @@ public class IncidentService {
         return incident;
     }
     public Options options(String email) {
-        User user = actor(email);
-        List<Person> technicians = user.getRole() == Role.ADMIN ? users.findAll().stream()
-                .filter(account -> account instanceof Technician t && t.isEnabled() && t.isAvailable()).map(IncidentService::person).toList() : List.of();
-        return new Options(Arrays.stream(Incident.Category.values()).map(c -> new Option(c.name(), c.name())).toList(),
-                Arrays.stream(Incident.ItService.values()).map(s -> new Option(s.name(), s.getLabel())).toList(), technicians);
+        actor(email);
+        return new Options(catalog.all().stream().filter(c -> c.isEnabled() && c.getKind().equals("CATEGORY")).map(c -> new Option(c.getCode(), c.getLabel())).toList(),
+                catalog.all().stream().filter(c -> c.isEnabled() && c.getKind().equals("SERVICE")).map(c -> new Option(c.getCode(), c.getLabel())).toList());
     }
     public List<View> list(String email, boolean mine, String search, IncidentStatus status, Incident.Category category, Incident.Priority priority) {
         User user = actor(email);
@@ -81,18 +86,32 @@ public class IncidentService {
     @Transactional
     public View create(Create request, String email) {
         User user = actor(email); role(user, Role.STUDENT);
+        catalog.requireEnabled("CATEGORY", request.category().name());
+        catalog.requireEnabled("SERVICE", request.affectedService().name());
+        priorities.criticality(request.affectedService());
         Incident incident = new Incident(request.title(), request.description(), (Student) user, request.category(), request.affectedService(), request.impact(), request.urgency());
         incident.record(user, "CREATED", "Incident reported.", STUDENT_VISIBLE);
         incidents.saveAndFlush(incident);
+        events.publish(incident.getId(), user.getId(), "CREATED", null, "NEW", "Incident reported.");
+        duplicates.check(incident.getId());
         return view(incident, user);
     }
     @Transactional
     public View classify(Long id, Classification request, String email) {
         User user = actor(email); Incident incident = editable(id, user, Role.ADMIN);
-        incident.classify(request.category());
+        Incident.Level criticality = priorities.criticality(incident.getAffectedService());
+        incident.classify(request.category(), priorities.calculate(incident, criticality));
+        incident.captureCriticality(criticality);
         slaPolicies.capture(incident);
-        incident.record(user, "PRIORITY_ASSIGNED", "Priority: " + incident.getPriority(), STUDENT_VISIBLE);
+        events.publish(id, user.getId(), "PRIORITY_CHANGED", "PENDING", incident.getPriority().name(), "Calculated using " + priorities.current().getStrategy() + "; criticality: " + criticality);
+        incident.record(user, "PRIORITY_ASSIGNED", "Priority: " + incident.getPriority() + "; criticality: " + criticality, STUDENT_VISIBLE);
         return finish(incident, user, "CLASSIFIED", "Category confirmed: " + request.category());
+    }
+    @Transactional
+    public View edit(Long id, Edit request, String email) {
+        User user = actor(email); Incident incident = editable(id, user, Role.STUDENT);
+        incident.editReport(request.title(), request.description());
+        return finish(incident, user, "REPORT_EDITED", "Reporter updated the report before classification.");
     }
     @Transactional
     public View acknowledge(Long id, String email) {
@@ -110,7 +129,9 @@ public class IncidentService {
         incident.require(IncidentStatus.IN_PROGRESS);
         incident.addNote(user, request.content(), request.visibility(), NOTE);
         incident.record(user, "NOTE_ADDED", "Investigation note added.", request.visibility());
-        incidents.flush(); return view(incident, user);
+        incidents.flush();
+        events.publish(id, user.getId(), request.visibility() == INTERNAL ? "INTERNAL_NOTE_ADDED" : "NOTE_ADDED", "Investigation note added.");
+        return view(incident, user);
     }
     @Transactional
     public View information(Long id, Message request, String email, boolean reply) {
@@ -154,6 +175,16 @@ public class IncidentService {
     private View finish(Incident incident, User actor, String action, String description) {
         incident.record(actor, action, description, STUDENT_VISIBLE);
         incidents.flush();
+        String previous = switch (action) {
+            case "CLASSIFIED" -> "NEW";
+            case "ACKNOWLEDGED" -> "ASSIGNED";
+            case "INVESTIGATION_STARTED" -> "ACKNOWLEDGED";
+            case "RESOLVED" -> "IN_PROGRESS";
+            case "VERIFIED", "ISSUE_STILL_EXISTS" -> "RESOLVED";
+            case "CLOSED" -> "VERIFIED";
+            default -> incident.getStatus().name();
+        };
+        events.publish(incident.getId(), actor.getId(), action, previous, incident.getStatus().name(), description);
         return view(incident, actor);
     }
     private static Person person(User user) { return user == null ? null : new Person(user.getId(), user.getName()); }
@@ -169,6 +200,6 @@ public class IncidentService {
                 i.getCreatedAt(), i.getUpdatedAt(), i.getAcknowledgedAt(), i.getResolvedAt(), i.getVerifiedAt(), i.getClosedAt(),
                 i.getResolutionSummary(), i.getResolutionSteps(), notes, history, f == null ? null : new FeedbackView(f.getRating(), f.getComment(), f.getCreatedAt()),
                 user.getRole() == Role.TECHNICIAN && i.isPrimary(user.getId()), student ? List.of() : i.getCollaborators().stream()
-                    .map(c -> new TeamMember(person(c.getTechnician()), c.getResponsibility())).toList());
+                    .map(c -> new TeamMember(person(c.getTechnician()), c.getResponsibility())).toList(), categories.suggest(i.getTitle(), i.getDescription()), i.getCriticality(), i.getResponseDeadline(), i.getResolutionDeadline(), i.responseSla(java.time.Instant.now()), i.resolutionSla(java.time.Instant.now()));
     }
 }

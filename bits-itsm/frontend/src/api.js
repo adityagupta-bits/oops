@@ -3,11 +3,11 @@ export async function apiRequest(path, options = {}) {
   try {
     response = await fetch(`/api/${path}`, { ...options, credentials: 'include' });
   } catch {
-    throw new Error('Unable to reach the server. Check your connection and try again.');
+    throw new Error('Unable to connect to the BITSolve server.');
   }
   const data = await response.json().catch(() => null);
   if (!response.ok || !data) {
-    const error = new Error(response.status === 401 && path !== 'auth/login' ? 'Please sign in again. Your session may have expired.' : response.status >= 500 || !data ? 'Service unavailable. Please try again.' : data.message);
+    const error = new Error(response.status === 401 && path !== 'auth/login' ? 'Please sign in again. Your session may have expired.' : response.status >= 500 || !data ? 'Unable to connect to the BITSolve server.' : data.message || 'The request could not be completed.');
     error.status = response.status;
     throw error;
   }

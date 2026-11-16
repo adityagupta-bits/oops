@@ -16,7 +16,11 @@ public class IncidentEventPublisher {
     }
 
     public void publish(Long incidentId, Long actorId, String action, String description) {
-        bus.publish(IncidentEvent.of(typeFor(action), incidentId, actorId, action, null, null, description));
+        publish(incidentId, actorId, action, null, null, description);
+    }
+
+    public void publish(Long incidentId, Long actorId, String action, String previous, String next, String description) {
+        bus.publish(IncidentEvent.of(typeFor(action), incidentId, actorId, action, previous, next, description));
     }
 
     public static EventType typeFor(String action) {
@@ -33,5 +37,9 @@ public class IncidentEventPublisher {
             case "PRIORITY_CHANGED" -> EventType.PRIORITY_CHANGED;
             default -> EventType.INCIDENT_UPDATED;
         };
+    }
+
+    public void publishTo(Long incidentId, Long actorId, String action, String previous, String next, String description, java.util.Set<Long> recipients) {
+        bus.publish(new IncidentEvent(typeFor(action), incidentId, actorId, action, previous, next, description, java.time.Instant.now(), recipients));
     }
 }

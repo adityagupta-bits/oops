@@ -5,14 +5,13 @@ import com.bits.itsm.event.IncidentObserver;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.UUID;
 
 /** Observer that turns every incident event into an audit record. */
 @Component
 public class AuditLogger implements IncidentObserver {
 
     private final AuditStore store;
-    private final AtomicLong sequence = new AtomicLong();
 
     public AuditLogger(AuditStore store) {
         this.store = store;
@@ -20,7 +19,7 @@ public class AuditLogger implements IncidentObserver {
 
     @Override
     public void onEvent(IncidentEvent e) {
-        String id = String.format("AUD-%06d", sequence.incrementAndGet());
+        String id = "AUD-" + UUID.randomUUID();
         String action = e.action() != null ? e.action() : e.type().label();
         store.save(new AuditRecord(id, e.timestamp(), e.actorId(), e.incidentId(),
                 action, e.previous(), e.next(), e.description()));

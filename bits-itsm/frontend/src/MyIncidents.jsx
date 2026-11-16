@@ -39,7 +39,7 @@ export function IncidentSummary({ incidents }) {
   );
 }
 
-const emptyFilters = { search: '', status: '', priority: '', category: '' };
+const emptyFilters = { search: '', status: '', priority: '', category: '', service: '', fromDate: '' };
 
 export default function MyIncidents({ incidents, initialIncidentId, liveRole, team, options, onAction }) {
   const [filters, setFilters] = useState(emptyFilters);
@@ -58,7 +58,9 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
     (String(incident.id).toLowerCase().includes(query) || incident.title.toLowerCase().includes(query)) &&
     (!filters.status || incident.status === filters.status) &&
     (!filters.priority || incident.priority === filters.priority) &&
-    (!filters.category || incident.category === filters.category),
+    (!filters.category || incident.category === filters.category) &&
+    (!filters.service || incident.affectedService === filters.service) &&
+    (!filters.fromDate || incident.createdAt.slice(0, 10) >= filters.fromDate),
   );
 
   function changeFilter(event) {
@@ -89,7 +91,7 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
         <div><h2 id="my-incidents-title">{title}</h2><p>{liveRole ? 'View and manage the incidents available to your account.' : 'View and track all your reported IT support requests.'}</p></div>
       </div>
       <IncidentSummary incidents={incidents} />
-      <p className="report-guidance">Open: New, Classified. In progress: Assigned, Acknowledged, In Progress. Resolved: Resolved, Verified, Closed. {liveRole ? 'Priority calculation is pending.' : "Counts include this demo student's incidents."}</p>
+      <p className="report-guidance">Open: New, Classified. In progress: Assigned, Acknowledged, In Progress. Resolved: Resolved, Verified, Closed. {liveRole ? 'Priority is calculated when the administrator classifies an incident.' : "Counts include this demo student's incidents."}</p>
 
       <div className="incident-filters" role="search" aria-label="Search and filter incidents">
         <div className="report-field">
@@ -117,6 +119,8 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
             {categories.map((category) => <option key={category} value={category}>{readableLabel(category)}</option>)}
           </select>
         </div>
+        <div className="report-field"><label htmlFor="filter-service">Affected service</label><select id="filter-service" name="service" value={filters.service} onChange={changeFilter}><option value="">All services</option>{[...new Set(incidents.map(item => item.affectedService))].filter(Boolean).map(service => <option key={service} value={service}>{readableLabel(service)}</option>)}</select></div>
+        <div className="report-field"><label htmlFor="filter-date">Reported on or after</label><input id="filter-date" type="date" name="fromDate" value={filters.fromDate} onChange={changeFilter} /></div>
         <button type="button" className="report-clear" onClick={() => setFilters(emptyFilters)}>Clear Filters</button>
       </div>
 
@@ -160,6 +164,7 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
           <dl className="incident-details">{[
             ['Incident ID', selectedIncident.id], ['Title', selectedIncident.title], ['Description', selectedIncident.description],
             ['Reporter', selectedIncident.reporter.name], ['Category', readableLabel(selectedIncident.category)], ['Affected Service', selectedIncident.serviceLabel],
+            ['Business criticality', readableLabel(selectedIncident.criticality)], ['Response SLA', readableLabel(selectedIncident.responseSla)], ['Resolution SLA', readableLabel(selectedIncident.resolutionSla)], ['Response deadline', selectedIncident.responseDeadline || 'Pending classification'], ['Resolution deadline', selectedIncident.resolutionDeadline || 'Pending classification'],
             ['Impact', readableLabel(selectedIncident.impact)], ['Urgency', readableLabel(selectedIncident.urgency)], ['Priority', readableLabel(selectedIncident.priority)],
             ['Status', readableLabel(selectedIncident.status)], ['Assigned Technician', selectedIncident.assignedTechnician?.name || 'Not assigned'],
             ...['createdAt', 'updatedAt', 'acknowledgedAt', 'resolvedAt', 'verifiedAt', 'closedAt'].filter(field => selectedIncident[field]).map(field => [field.replace(/([A-Z])/g, ' $1'), new Date(selectedIncident[field]).toLocaleString()]),

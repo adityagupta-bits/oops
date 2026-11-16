@@ -58,8 +58,9 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contexts,
-            HttpSessionCsrfTokenRepository tokens) throws Exception {
+            HttpSessionCsrfTokenRepository tokens, com.bits.itsm.user.UserRepository users) throws Exception {
         return http
+                .addFilterAfter(new EnabledAccountFilter(users), org.springframework.security.web.authentication.AnonymousAuthenticationFilter.class)
                 .csrf(csrf -> csrf.csrfTokenRepository(tokens))
                 .securityContext(context -> context.securityContextRepository(contexts))
                 .requestCache(AbstractHttpConfigurer::disable)
@@ -67,6 +68,7 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(access -> access
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                        .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/login", "/student", "/student/**", "/admin", "/admin/**", "/technician", "/technician/**").permitAll()
                         .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login").permitAll()
                         .requestMatchers("/api/student/**").hasRole("STUDENT")
                         .requestMatchers("/api/technician/**").hasRole("TECHNICIAN")

@@ -33,16 +33,19 @@ public class NotificationService implements IncidentObserver {
 
     @Override
     public void onEvent(IncidentEvent e) {
+        RuntimeException failure = null;
         for (Long recipient : recipientsFor(e)) {
             Notification n = NotificationFactory.create(e, recipient);
             for (NotificationChannel channel : channels) {
                 try {
                     channel.send(n);
                 } catch (RuntimeException ex) {
+                    failure = ex;
                     log.error("Channel {} failed for {}", channel.name(), n.id(), ex);
                 }
             }
         }
+        if (failure != null) throw failure;
     }
 
     Set<Long> recipientsFor(IncidentEvent e) {
@@ -51,7 +54,12 @@ public class NotificationService implements IncidentObserver {
         Long technician = incident.map(IncidentSnapshot::technicianId).orElse(null);
         List<Long> admins = lookup.adminIds();
 
-        Set<Long> to = new LinkedHashSet<>();
+        Set<Long> to = new LinkedHashSet<>(e.recipients());
+        if (e.action() != null && (e.action().startsWith("TRANSFER_") || e.action().startsWith("COLLABOR") || e.action().startsWith("INTERNAL_"))) {
+            to.addAll(admins); add(to, technician);
+            to.remove(e.actorId());
+            return to;
+        }
         switch (e.type()) {
             case INCIDENT_CREATED -> {
                 add(to, reporter);

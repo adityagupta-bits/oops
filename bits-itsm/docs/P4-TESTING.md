@@ -1,15 +1,13 @@
-# Test cases for the services layer (68 automated JUnit tests, no Spring context, no database)
+# Verification
 
-| Class | Tests | Category | What it proves |
-|---|---|---|---|
-| SlaCalculatorTest | 13 | Normal / boundary / invalid | targets match the SLA table; exactly at the deadline is not breached, 1 ms later is; MET and BREACHED when resolved on/after time; PENDING, missing priority and non-positive time scale rejected |
-| SlaMonitorTest | 8 | Normal / business rule / exception | warning once at 80%; breach once; acknowledged incident has no response breach; resolution clock after acknowledgement; closed ignored; unprioritised incident skipped without stopping others; violations list; snapshots |
-| EscalationServiceTest | 8 | Business rule / boundary | no escalation at the deadline; P1 to Team Lead; full chain capped at IT Manager; no repeat event; every step audited; acknowledgement stops it; only P1 escalates; system-generated events |
-| DuplicateDetectorTest | 12 | Normal / boundary / invalid | similar reports detected (incl. the problem statement's payment example); different service is not a duplicate; low similarity ignored; closed excluded; never its own duplicate; threshold; event published only on a match; null service and null text handled |
-| EventBusAuditTest | 9 | Normal / exception | all observers notified; failing observer isolated; null type/id rejected; system events have no actor; audit fields kept; per-incident newest-first history; action-name to event-type mapping; publisher forwards to the bus |
-| NotificationServiceTest | 10 | Normal / business rule / exception / authorization | all channels receive; recipients per event type; actor not notified of own action; all admins notified; missing technician skipped; mark-read only for the owner; failing channel isolated; message wording |
-| SmartRecommendationAssignmentTest | 8 | Normal / boundary / business rule | routine incident favours skill, urgent favours low load; required skill is mandatory; disabled/busy/unavailable/full excluded; empty result; id tie-break; score formula (uses the real Incident and Technician classes) |
+Run mvnw.cmd verify in backend and npm.cmd run build in frontend. The root README explains the opt-in disposable PostgreSQL test configuration.
 
-Not covered by automated tests (state this honestly in the report): the Spring wiring, the database adapter
-(RepositoryIncidentLookup), the HTTP endpoints and the scheduler, because they need a running Postgres.
-These must be checked by running the application and the demo workflows.
+Unit/MVC tests cover user inheritance, validation, role boundaries, sessions/CSRF, lifecycle rules, priority thresholds, assignment eligibility, SLA boundaries, escalation, category rules, duplicates, event propagation and notification ownership.
+
+PostgreSQL tests exercise real authentication, incident lifecycle/history, concurrent capacity checks, transfers/collaboration, privacy, saved deadlines, strategy switching, notification persistence, user/catalog management, reports and additive migration behavior.
+
+Read backend/target/surefire-reports for current counts. Database tests are skipped unless BITSOLVE_DB_TESTS=true. Never point them at valuable records. Hosted HTTPS and external SMTP require separate verification; a simulated outbox does not prove delivery.
+
+Verified locally on 2026-11-16: 147 tests passed, zero failed, zero skipped using an isolated PostgreSQL 18 database; React production build passed. Headless browser workflows passed against the packaged application: reporting/assignment, transfers, collaboration, resolution/verification/closure, admin account/catalog/SLA edits, notification read/navigation, role checks, session restoration and mobile layout. Docker and Railway were not executed.
+
+Gmail implementation verification (2026-11-16): 156 tests passed, zero failed/skipped on isolated PostgreSQL; frontend production build passed. SMTP was mocked. Added email coverage for the three events, reporter-only addressing, deduplication, uncommitted visibility, rollback, bounded failure retries, missing configuration, safe content and interrupted final-attempt recovery. No live Gmail message was sent.

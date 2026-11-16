@@ -125,7 +125,8 @@ class BitsolveBackendApplicationTests {
         String[] paths = {"/api/student/test", "/api/technician/test", "/api/admin/test"};
         for (int caller = 0; caller < roles.length; caller++) {
             for (int target = 0; target < paths.length; target++) {
-                mockMvc.perform(get(paths[target]).with(user("test").roles(roles[caller])))
+                String account = new String[]{"student01", "technician01", "admin01"}[caller] + "@hyderabad.bits-pilani.ac.in";
+                mockMvc.perform(get(paths[target]).with(user(account).roles(roles[caller])))
                         .andExpect(status().is(caller == target ? 200 : 403));
             }
         }

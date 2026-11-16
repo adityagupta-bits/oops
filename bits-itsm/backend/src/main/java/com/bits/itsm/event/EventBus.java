@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * Subject of the Observer pattern. Spring injects every IncidentObserver bean,
  * so adding a new observer needs no change here.
- * A failing observer is logged and never blocks the others.
+ * Failures are propagated after notifying observers so the database transaction rolls back.
  */
 @Service
 public class EventBus {
@@ -23,12 +23,15 @@ public class EventBus {
     }
 
     public void publish(IncidentEvent event) {
+        RuntimeException failure = null;
         for (IncidentObserver observer : observers) {
             try {
                 observer.onEvent(event);
             } catch (RuntimeException ex) {
+                failure = ex;
                 log.error("Observer {} failed on {}", observer.getClass().getSimpleName(), event.type(), ex);
             }
         }
+        if (failure != null) throw failure;
     }
 }

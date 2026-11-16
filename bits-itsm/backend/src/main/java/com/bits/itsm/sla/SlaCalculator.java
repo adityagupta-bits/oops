@@ -12,7 +12,7 @@ import java.time.Instant;
 /**
  * Pure SLA logic: targets per priority, deadlines, progress and status.
  * Targets follow the problem statement (P1 5m/30m, P2 15m/2h, P3 1h/8h, P4 4h/24h).
- * itsm.sla.time-scale shrinks every duration for demos (0.01 turns 30 minutes into 18 seconds).
+ * Saved deadlines take precedence. itsm.sla.time-scale only changes fallback targets for demos.
  * Both clocks start at the incident's creation time. An incident whose priority is still PENDING has no SLA yet.
  */
 @Component
@@ -24,7 +24,7 @@ public class SlaCalculator {
     private final double timeScale;
 
     public SlaCalculator(@Value("${itsm.sla.time-scale:1.0}") double timeScale) {
-        if (timeScale <= 0) {
+        if (!Double.isFinite(timeScale) || timeScale <= 0) {
             throw new IllegalArgumentException("time-scale must be positive");
         }
         this.timeScale = timeScale;
@@ -55,10 +55,12 @@ public class SlaCalculator {
     }
 
     public Instant responseDeadline(IncidentSnapshot i) {
+        if (i.responseDeadline() != null) return i.responseDeadline();
         return i.createdAt().plus(responseTarget(i.priority()));
     }
 
     public Instant resolutionDeadline(IncidentSnapshot i) {
+        if (i.resolutionDeadline() != null) return i.resolutionDeadline();
         return i.createdAt().plus(resolutionTarget(i.priority()));
     }
 

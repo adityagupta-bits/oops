@@ -14,7 +14,8 @@ public record IncidentSnapshot(Long id, String title, String description,
                                Incident.Category category, Incident.ItService service,
                                Incident.Priority priority, IncidentStatus status,
                                Long reporterId, Long technicianId,
-                               Instant createdAt, Instant acknowledgedAt, Instant resolvedAt) {
+                               Instant createdAt, Instant acknowledgedAt, Instant resolvedAt,
+                               Instant responseDeadline, Instant resolutionDeadline) {
 
     /** Display label such as INC-1004. */
     public String label() {

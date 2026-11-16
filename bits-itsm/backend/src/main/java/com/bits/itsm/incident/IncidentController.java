@@ -22,6 +22,7 @@ public class IncidentController {
         return service.list(auth.getName(), request.getRequestURI().endsWith("/my"), search, status, category, priority);
     }
     @GetMapping("/{id}") public View get(@PathVariable Long id, Authentication auth) { return service.get(id, auth.getName()); }
+    @PostMapping("/{id}/edit") public View edit(@PathVariable Long id, @Valid @RequestBody Edit request, Authentication auth) { return service.edit(id, request, auth.getName()); }
     @PostMapping("/{id}/classify") public View classify(@PathVariable Long id, @Valid @RequestBody Classification request, Authentication auth) { return service.classify(id, request, auth.getName()); }
     @PostMapping("/{id}/acknowledge") public View acknowledge(@PathVariable Long id, Authentication auth) { return service.acknowledge(id, auth.getName()); }
     @PostMapping("/{id}/start") public View start(@PathVariable Long id, Authentication auth) { return service.start(id, auth.getName()); }

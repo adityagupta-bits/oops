@@ -2,7 +2,7 @@ package com.bits.itsm.audit;
 
 import java.util.List;
 
-/** Repository-style contract for audit persistence. Swap in a JPA implementation for the database. */
+/** Audit persistence contract, implemented by JpaAuditStore in the application. */
 public interface AuditStore {
     void save(AuditRecord record);
 

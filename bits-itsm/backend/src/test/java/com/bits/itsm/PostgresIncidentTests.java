@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PostgresIncidentTests {
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
+    @Autowired com.bits.itsm.support.IncidentLookup incidentLookup;
     final JsonMapper json = JsonMapper.builder().build();
     String email(String name) { return name + "@hyderabad.bits-pilani.ac.in"; }
     JsonNode postAs(String name, String path, Object body, int status) throws Exception {
@@ -87,10 +88,11 @@ class PostgresIncidentTests {
         postAs("student01", "/" + id + "/feedback", Map.of("rating", 4), 409);
         JsonNode saved = getAs("student01", "/" + id, 200);
         assertEquals("CLOSED", saved.get("status").asText()); assertEquals(5, saved.get("feedback").get("rating").asInt());
-        assertEquals(9, saved.get("history").size());
+        assertEquals(10, saved.get("history").size());
+        assertTrue(saved.get("history").toString().contains("PRIORITY_ASSIGNED"));
         assertFalse(saved.get("closedAt").isNull()); assertFalse(saved.get("verifiedAt").isNull());
         postAs("technician04", "/" + id + "/start", Map.of(), 409);
-        assertEquals(9, getAs("admin01", "/" + id, 200).get("history").size());
+        assertEquals(saved.get("history"), getAs("admin01", "/" + id, 200).get("history"));
     }
     @Test void privateNotesSupportRepliesAndRejectedResolutionPersist() throws Exception {
         long id = create(); investigate(id);
@@ -112,6 +114,7 @@ class PostgresIncidentTests {
     }
     @Test void assignmentRejectsStudentsDisabledAndUnavailableTechnicians() throws Exception {
         long id = create(); postAs("admin01", "/" + id + "/classify", Map.of("category", "HARDWARE"), 200);
+        JsonNode historyBefore = getAs("admin01", "/" + id, 200).get("history");
         postAs("admin01", "/" + id + "/assign", Map.of("technicianId", users.findByEmail(email("student02")).orElseThrow().getId()), 400);
         Technician technician = (Technician) users.findByEmail(email("technician04")).orElseThrow();
         try {
@@ -121,6 +124,32 @@ class PostgresIncidentTests {
             postAs("admin01", "/" + id + "/assign", Map.of("technicianId", technician.getId()), 409);
         } finally { technician.setAvailable(true); technician.setEnabled(true); users.saveAndFlush(technician); }
         assertEquals("CLASSIFIED", getAs("admin01", "/" + id, 200).get("status").asText());
-        assertEquals(2, getAs("admin01", "/" + id, 200).get("history").size());
+        assertEquals(historyBefore, getAs("admin01", "/" + id, 200).get("history"));
+    }
+    @Test void adminSlaUsesCapturedDeadlinesAndRejectsOtherRoles() throws Exception {
+        long id = create();
+        JsonNode incident = postAs("admin01", "/" + id + "/classify", Map.of("category", "NETWORK"), 200);
+        var response = mvc.perform(get("/api/admin/sla").with(user(email("admin01")).roles("ADMIN")))
+                .andExpect(status().isOk()).andReturn();
+        JsonNode row = java.util.stream.StreamSupport.stream(json.readTree(response.getResponse().getContentAsString()).spliterator(), false)
+                .filter(item -> item.get("incidentId").asLong() == id).findFirst().orElseThrow();
+        var created = java.time.Instant.parse(incident.get("createdAt").asText());
+        assertEquals(created.plusSeconds(15 * 60), java.time.Instant.parse(row.get("responseDeadline").asText()));
+        assertEquals(created.plusSeconds(2 * 60 * 60), java.time.Instant.parse(row.get("resolutionDeadline").asText()));
+        assertEquals("ON_TRACK", row.get("responseStatus").asText());
+        assertEquals("ON_TRACK", row.get("resolutionStatus").asText());
+        var snapshot = incidentLookup.findById(id).orElseThrow();
+        assertEquals(created.plusSeconds(15 * 60), snapshot.responseDeadline());
+        assertEquals(created.plusSeconds(2 * 60 * 60), snapshot.resolutionDeadline());
+        mvc.perform(get("/api/admin/sla").with(user(email("student01")).roles("STUDENT"))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/sla").with(user(email("technician01")).roles("TECHNICIAN"))).andExpect(status().isForbidden());
+    }
+    @Test void reporterCanEditOnlyTheirOwnUnclassifiedReport() throws Exception {
+        long id = create();
+        Map<String, String> change = Map.of("title", "Updated network problem", "description", "The library network is unavailable on both my devices.");
+        postAs("student02", "/" + id + "/edit", change, 403);
+        assertEquals("Updated network problem", postAs("student01", "/" + id + "/edit", change, 200).get("title").asText());
+        postAs("admin01", "/" + id + "/classify", Map.of("category", "NETWORK"), 200);
+        postAs("student01", "/" + id + "/edit", change, 409);
     }
 }

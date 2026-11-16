@@ -1,3 +1,4 @@
+import { apiRequest } from '../api.js';
 import React, { useEffect, useRef, useState } from 'react';
 import Notifications from '../Notifications.jsx';
 import { readableLabel } from '../MyIncidents.jsx';
@@ -59,4 +60,24 @@ export function KnowledgeBase({ incidents, accessibleIds, onView }) {
 
 export function NotificationCenter({ technicianId, accessibleIds, readIds, onRead, onView }) {
   return <Notifications records={technicianNotifications.filter((item) => item.technicianId === technicianId)} readIds={readIds} onRead={onRead} onOpen={(item) => onView(item.incidentId)} canOpen={(item) => accessibleIds.includes(item.incidentId)} />;
+}
+
+export function SavedKnowledge() {
+  const [records, setRecords] = useState([]);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  async function load() {
+    setLoading(true); setError('');
+    try { setRecords(await apiRequest('technician/knowledge')); }
+    catch (error) { setError(error.message); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, []);
+  const filtered = records.filter(item => [item.title, item.category, item.summary].some(value => value?.toLowerCase().includes(query.toLowerCase())));
+  return <><h2>Verified resolutions</h2><p>Previous resolutions confirmed by their reporters.</p>
+    <div className="report-field"><label htmlFor="knowledge-search">Search title, category or resolution</label><input id="knowledge-search" value={query} onChange={event => setQuery(event.target.value)} /></div>
+    <button className="report-clear" disabled={loading} onClick={load}>Refresh</button>
+    {error && <p role="alert">{error}</p>}{loading ? <p role="status">Loading resolutions?</p> : filtered.length ? filtered.map(item => <section className="report-form" key={item.incidentId}><h3>{item.title}</h3><p>Incident {item.incidentId} ? {readableLabel(item.category)} ? {item.service}</p><p>{item.summary}</p><p>{item.steps}</p></section>) : <p>No verified resolutions match your search.</p>}
+  </>;
 }

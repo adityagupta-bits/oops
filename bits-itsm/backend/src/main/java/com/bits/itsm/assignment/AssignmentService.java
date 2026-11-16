@@ -24,10 +24,11 @@ public class AssignmentService implements ApplicationRunner {
     private final TransferRequestRepository transfers;
     private final CollaborationRequestRepository collaborations;
     private final JdbcTemplate jdbc;
+    private final com.bits.itsm.event.IncidentEventPublisher events;
     public AssignmentService(IncidentRepository incidents, UserRepository users, WorkloadService workloads,
-            AssignmentSettingsRepository settings, TransferRequestRepository transfers, CollaborationRequestRepository collaborations, JdbcTemplate jdbc) {
+            AssignmentSettingsRepository settings, TransferRequestRepository transfers, CollaborationRequestRepository collaborations, JdbcTemplate jdbc, com.bits.itsm.event.IncidentEventPublisher events) {
         this.incidents = incidents; this.users = users; this.workloads = workloads; this.settings = settings;
-        this.transfers = transfers; this.collaborations = collaborations; this.jdbc = jdbc;
+        this.transfers = transfers; this.collaborations = collaborations; this.jdbc = jdbc; this.events = events;
     }
     @Override @Transactional
     public void run(ApplicationArguments arguments) {
@@ -96,9 +97,11 @@ public class AssignmentService implements ApplicationRunner {
             AssignmentStrategy strategy = settings.findById(1L).orElseThrow().getStrategy() == AssignmentSettings.Mode.SKILL_BASED ? new SkillBasedAssignment() : new LoadBasedAssignment();
             technician = strategy.assign(incident, workloads.candidates(incident)).orElseThrow(() -> new IllegalStateException("No eligible technician available. Incident remains classified and awaiting assignment."));
         } else technician = eligible(incident, technicianId, incident.requiredSkill());
+        String previous = incident.getAssignedTechnician() == null ? "Unassigned" : incident.getAssignedTechnician().getId().toString();
         if (incident.getStatus() == IncidentStatus.CLASSIFIED) incident.assign(technician); else incident.reassign(technician);
         incident.record(user, automatic ? "AUTO_ASSIGNED" : "ASSIGNED", "Assigned to " + technician.getName() + ".", STUDENT_VISIBLE);
         incidents.flush();
+        events.publish(id, user.getId(), automatic ? "AUTO_ASSIGNED" : "ASSIGNED", previous, technician.getId().toString(), "Assigned to " + technician.getName() + ".");
     }
     @Transactional public RequestView transfer(Long id, Transfer request, String email) {
         User user = actor(email, Role.TECHNICIAN); Incident incident = locked(id); primary(incident, user); incident.requireAssignableTeam();
@@ -106,7 +109,9 @@ public class AssignmentService implements ApplicationRunner {
         Technician target = eligible(incident, request.technicianId(), incident.requiredSkill());
         TransferRequest saved = transfers.save(new TransferRequest(incident, target, request.reason(), request.handoverNotes()));
         incident.record(user, "TRANSFER_REQUESTED", "Transfer requested to " + target.getName() + ".", INTERNAL);
-        incidents.flush(); return view(saved);
+        incidents.flush();
+        events.publishTo(id, user.getId(), "TRANSFER_REQUESTED", null, PENDING.name(), "A transfer request awaits administrator review.", Set.of(target.getId()));
+        return view(saved);
     }
     @Transactional public RequestView collaborate(Long id, Collaboration request, String email) {
         User user = actor(email, Role.TECHNICIAN); Incident incident = locked(id); primary(incident, user); incident.requireAssignableTeam();
@@ -114,7 +119,9 @@ public class AssignmentService implements ApplicationRunner {
         Technician target = eligible(incident, request.technicianId(), request.requiredSkill());
         CollaborationRequest saved = collaborations.save(new CollaborationRequest(incident, target, request.requiredSkill(), request.reason(), request.responsibility()));
         incident.record(user, "COLLABORATOR_REQUESTED", "Collaboration requested from " + target.getName() + ".", INTERNAL);
-        incidents.flush(); return view(saved);
+        incidents.flush();
+        events.publishTo(id, user.getId(), "COLLABORATOR_REQUESTED", null, PENDING.name(), "A collaboration request awaits administrator review.", Set.of(target.getId()));
+        return view(saved);
     }
     public List<RequestView> requests(boolean collaboration, boolean admin, String email) {
         User user = admin ? actor(email, Role.ADMIN) : actor(email, Role.TECHNICIAN);
@@ -143,7 +150,12 @@ public class AssignmentService implements ApplicationRunner {
         }
         pending.review(decision, user, request.notes());
         incident.record(user, (collaboration ? "COLLABORATION_" : "TRANSFER_") + decision, request.notes(), INTERNAL);
-        incidents.flush(); return view(pending);
+        incidents.flush();
+        if (!collaboration && decision == APPROVED) {
+            events.publish(incident.getId(), user.getId(), "TECHNICIAN_CHANGED", pending.getPrimaryTechnician().getId().toString(), pending.getProposedTechnician().getId().toString(), "Primary technician changed after transfer approval.");
+        }
+        events.publishTo(incident.getId(), user.getId(), (collaboration ? "COLLABORATION_" : "TRANSFER_") + decision, PENDING.name(), decision.name(), "Team change request " + decision.name().toLowerCase() + ".", Set.of(pending.getPrimaryTechnician().getId(), pending.getProposedTechnician().getId()));
+        return view(pending);
     }
     private static Person person(User user) { return user == null ? null : new Person(user.getId(), user.getName()); }
     private RequestView view(AssignmentRequest r) {

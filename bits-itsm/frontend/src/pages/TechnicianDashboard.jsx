@@ -1,9 +1,10 @@
+import Notifications from '../Notifications.jsx';
 import LiveIncidents from '../LiveIncidents.jsx';
 import AssignmentManagement from '../AssignmentManagement.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import Button27 from '../components/ui/button-27.jsx';
 import TechnicianOperations, { operationLabels } from './TechnicianOperations.jsx';
-import { KnowledgeBase, NotificationCenter } from './TechnicianResources.jsx';
+import { KnowledgeBase, NotificationCenter, SavedKnowledge } from './TechnicianResources.jsx';
 import { incidentStatuses, readableLabel } from '../MyIncidents.jsx';
 import { demoIncidents, technicians, users, slaPolicies, auditLogs, investigationNotes, studentResponses, supportRequests, transferRequests, collaborationRequests, technicianNotifications, technicianWorkload, isActive } from '../demoData.js';
 
@@ -384,6 +385,8 @@ export default function TechnicianDashboard({ incidents = demoIncidents, session
     default: content = <DashboardHome incidents={assigned} technician={technician} workload={workload} onView={viewDetails} onAction={openOperation} onNavigate={navigate} />;
   }
 
+  if (sessionUser && page === 'knowledge') content = <SavedKnowledge />;
+  if (sessionUser && page === 'notifications') content = <Notifications live role="TECHNICIAN" />;
   if (sessionUser && ['dashboard', 'assigned', 'investigation'].includes(page)) content = <LiveIncidents role="TECHNICIAN" team={page === 'investigation'} />;
   if (sessionUser && page === 'team') content = <><LiveIncidents role="TECHNICIAN" team /><AssignmentManagement mode="collaboration" role="TECHNICIAN" userId={sessionUser.id} /></>;
   if (sessionUser && ['transfers', 'workload'].includes(page)) content = <AssignmentManagement key={page} mode={page === 'transfers' ? 'transfer' : 'workload'} role="TECHNICIAN" userId={sessionUser.id} />;
@@ -404,7 +407,6 @@ export default function TechnicianDashboard({ incidents = demoIncidents, session
       <main className="dashboard-content">
         {sessionNotice || <div className="dashboard-preview-note"><p><strong>Development-only Technician preview</strong> · Fictional records. This preview does not authenticate an account or save changes.</p><div className="preview-links"><a href="?preview=student">Student preview</a><a href="?preview=admin">Administrator preview</a><a href="/">Back to login</a></div></div>}
         {!sessionUser && <div className="report-field technician-selector"><label htmlFor="demo-technician">Demo technician (preview only)</label><select id="demo-technician" value={technicianId} onChange={changeTechnician}>{technicians.map((person) => <option key={person.id} value={person.id}>{person.name} ({person.id})</option>)}</select></div>}
-        {sessionUser && !['dashboard', 'assigned', 'investigation', 'profile', 'team', 'transfers', 'workload'].includes(page) && <p className="report-guidance">Development preview — this module still uses sample data.</p>}
         {content}
       </main>
       <footer className="dashboard-footer">BITSolve — BITS Hyderabad IT Support</footer>

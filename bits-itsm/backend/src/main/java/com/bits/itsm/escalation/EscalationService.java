@@ -1,6 +1,6 @@
 package com.bits.itsm.escalation;
 
-import com.bits.itsm.event.EventBus;
+import com.bits.itsm.sla.ScheduledEvents;
 import com.bits.itsm.event.EventType;
 import com.bits.itsm.event.IncidentEvent;
 import com.bits.itsm.incident.Incident;
@@ -14,30 +14,29 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Automatic escalation of critical incidents.
  * A P1 incident that is still unacknowledged after its response deadline moves up one level
  * (Technician -> Team Lead -> System Administrator -> IT Manager), then one more level every
  * itsm.escalation.step-minutes (also shrunk by itsm.sla.time-scale) until someone acknowledges it.
- * State is kept in memory.
+ * Escalation steps are persisted and are not repeated after a restart.
  */
 @Component
 public class EscalationService {
 
     private final SlaCalculator calculator;
-    private final EventBus bus;
+    private final ScheduledEvents events;
     private final Duration step;
-    private final Map<Long, EscalationRecord> records = new ConcurrentHashMap<>();
-    private final Map<Long, EscalationLevel> levels = new ConcurrentHashMap<>();
 
-    public EscalationService(SlaCalculator calculator, EventBus bus,
+    public EscalationService(SlaCalculator calculator, ScheduledEvents events,
                              @Value("${itsm.escalation.step-minutes:5}") double stepMinutes) {
+        if (!Double.isFinite(stepMinutes) || stepMinutes <= 0) {
+            throw new IllegalArgumentException("Escalation interval must be positive and finite.");
+        }
         this.calculator = calculator;
-        this.bus = bus;
+        this.events = events;
         this.step = calculator.scaled(Duration.ofMillis(Math.round(stepMinutes * 60_000)));
     }
 
@@ -54,7 +53,7 @@ public class EscalationService {
             int targetIndex = (int) Math.min(1 + stepsPast, EscalationLevel.values().length - 1);
             EscalationLevel target = EscalationLevel.values()[targetIndex];
 
-            EscalationLevel current = levels.getOrDefault(i.id(), EscalationLevel.TECHNICIAN);
+            EscalationLevel current = EscalationLevel.TECHNICIAN;
             while (current.ordinal() < target.ordinal()) {
                 EscalationLevel from = current;
                 current = current.next();
@@ -64,18 +63,16 @@ public class EscalationService {
     }
 
     private void escalate(IncidentSnapshot i, EscalationLevel from, EscalationLevel to, Instant now) {
-        levels.put(i.id(), to);
         String reason = "P1 incident " + i.label() + " was not acknowledged within its response SLA; escalated from "
                 + from.label() + " to " + to.label() + ".";
-        records.put(i.id(), new EscalationRecord(i.id(), to.label(), reason, now));
-        bus.publish(IncidentEvent.system(EventType.INCIDENT_ESCALATED, i.id(), from.label(), to.label(), reason, now));
+        events.publishOnce(i.id() + ":ESCALATION:" + to.ordinal(), IncidentEvent.system(EventType.INCIDENT_ESCALATED, i.id(), from.label(), to.label(), reason, now));
     }
 
     public Optional<EscalationRecord> getRecord(Long incidentId) {
-        return Optional.ofNullable(records.get(incidentId));
+        return getAll().stream().filter(record -> record.incidentId().equals(incidentId)).findFirst();
     }
 
     public List<EscalationRecord> getAll() {
-        return List.copyOf(records.values());
+        return events.escalations();
     }
 }

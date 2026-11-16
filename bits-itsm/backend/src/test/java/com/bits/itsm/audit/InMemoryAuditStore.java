@@ -1,13 +1,10 @@
 package com.bits.itsm.audit;
 
-import org.springframework.stereotype.Component;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/** Default store. Records are lost on restart; replace with a database-backed AuditStore for persistence. */
-@Component
+/** Test double used by observer unit tests. Production uses JpaAuditStore. */
 public class InMemoryAuditStore implements AuditStore {
 
     private static final Comparator<AuditRecord> NEWEST_FIRST =

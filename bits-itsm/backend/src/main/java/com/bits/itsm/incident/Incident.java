@@ -41,6 +41,9 @@ public class Incident {
     private Instant resolvedAt;
     private Instant verifiedAt;
     private Instant closedAt;
+    @Enumerated(EnumType.STRING) private Level criticality;
+    public Level getCriticality() { return criticality; }
+    public void captureCriticality(Level criticality) { this.criticality = java.util.Objects.requireNonNull(criticality); }
     private Instant responseDeadline;
     private Instant resolutionDeadline;
     private Integer responseTargetMinutes;
@@ -56,6 +59,12 @@ public class Incident {
     private List<IncidentCollaborator> collaborators = new ArrayList<>();
 
     protected Incident() { }
+    public void editReport(String title, String description) {
+        require(IncidentStatus.NEW);
+        this.title = text(title, 1, 100);
+        this.description = text(description, 20, 2000);
+        updatedAt = Instant.now();
+    }
     public Incident(String title, String description, Student reporter, Category category, ItService service, Level impact, Level urgency) {
         this.title = text(title, 1, 100);
         this.description = text(description, 20, 2000);
@@ -68,12 +77,16 @@ public class Incident {
 
     // State changes are centralized here; callers cannot set an arbitrary status.
     public void classify(Category category) {
-        require(IncidentStatus.NEW); this.category = java.util.Objects.requireNonNull(category);
-        priority = calculatedPriority(); move(IncidentStatus.CLASSIFIED);
+        classify(category, calculatedPriority());
+    }
+    public void classify(Category category, Priority calculated) {
+        require(IncidentStatus.NEW);
+        if (calculated == null || calculated == Priority.PENDING) throw new IllegalArgumentException("A calculated priority is required.");
+        this.category = java.util.Objects.requireNonNull(category);
+        priority = calculated; move(IncidentStatus.CLASSIFIED);
     }
     public Priority calculatedPriority() {
-        int score = impact.ordinal() + urgency.ordinal();
-        return score == 4 ? Priority.P1 : score == 3 ? Priority.P2 : score == 2 ? Priority.P3 : Priority.P4;
+        return new com.bits.itsm.priority.MultiplicativePriorityStrategy().calculate(impact, urgency, Level.MEDIUM);
     }
     // Snapshot targets once; policy edits and transfers never restart clocks.
     public void captureSla(SlaPolicy policy) {

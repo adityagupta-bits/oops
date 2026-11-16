@@ -1,3 +1,4 @@
+import AdminManagement from '../AdminManagement.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import Button27 from '../components/ui/button-27.jsx';
 import Notifications from '../Notifications.jsx';
@@ -557,6 +558,10 @@ export default function AdminDashboard({ sessionUser, sessionNotice }) {
     default: content = <DashboardHome open={open} navigate={navigate} />;
   }
 
+  const managementPages = ['Manage Users', 'IT Services', 'Incident Categories', 'SLA Policies', 'Escalations', 'Reports & Analytics', 'Audit Logs'];
+  if (sessionUser && managementPages.includes(page)) content = <AdminManagement key={page} page={page} />;
+  if (sessionUser && page === 'Settings') content = <section className="report-form"><h2>System configuration</h2><p>Manage persisted priority and assignment strategies and SLA targets using their respective pages.</p><button className="incident-view" onClick={() => navigate('Assignment Strategies')}>Open Strategies</button></section>;
+  if (sessionUser && page === 'Notifications') content = <Notifications live role="ADMIN" />;
   if (sessionUser && ['Dashboard', 'All Incidents'].includes(page)) content = <LiveIncidents role="ADMIN" />;
   const assignmentPages = { 'Assignment Requests': 'transfer', 'Collaboration Requests': 'collaboration', 'Manage Technicians': 'workload', 'Assignment Strategies': 'strategy' };
   if (sessionUser && assignmentPages[page]) content = <AssignmentManagement key={page} mode={assignmentPages[page]} role="ADMIN" userId={sessionUser.id} />;
@@ -573,7 +578,6 @@ export default function AdminDashboard({ sessionUser, sessionNotice }) {
       <main className="dashboard-content">
         {sessionNotice || <div className="dashboard-preview-note"><p><strong>Development preview</strong> · Fictional records. This preview does not authenticate an account. All administrative actions are unsaved proposals.</p><div className="preview-links"><a href="?preview=student">Student preview</a><a href="/">Back to login</a></div></div>}
         <div className="dashboard-welcome"><div><h2>{page === 'Dashboard' ? 'Campus IT overview' : page}</h2><p>Review incidents, teams and service health in one place.</p></div></div>
-        {sessionUser && !['Dashboard', 'All Incidents', ...Object.keys(assignmentPages)].includes(page) && <p className="report-guidance">Development preview — this module still uses sample data and does not save changes.</p>}
         {content}
       </main>
       <footer className="dashboard-footer">BITSolve — BITS Hyderabad IT Support</footer>

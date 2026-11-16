@@ -7,7 +7,8 @@ import com.bits.itsm.user.Technician;
 import com.bits.itsm.user.TechnicianSkill;
 
 public interface AssignmentStrategy {
-    record Candidate(Technician technician, long workload) {
+    record Candidate(Technician technician, long workload, long weightedLoad) {
+        public Candidate(Technician technician, long workload) { this(technician, workload, workload); }
         public boolean eligible(TechnicianSkill required) {
             return technician.canReceive(workload) && (required == null || technician.getSkills().contains(required));
         }

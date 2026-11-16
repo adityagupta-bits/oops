@@ -9,12 +9,17 @@ import java.util.Objects;
  * (for example AUTO_ASSIGNED); previous/next are optional old and new values.
  */
 public record IncidentEvent(EventType type, Long incidentId, Long actorId, String action,
-                            String previous, String next, String description, Instant timestamp) {
+                            String previous, String next, String description, Instant timestamp, java.util.Set<Long> recipients) {
+
+    public IncidentEvent(EventType type, Long incidentId, Long actorId, String action, String previous, String next, String description, Instant timestamp) {
+        this(type, incidentId, actorId, action, previous, next, description, timestamp, java.util.Set.of());
+    }
 
     public IncidentEvent {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(incidentId, "incidentId");
         timestamp = (timestamp == null) ? Instant.now() : timestamp;
+        recipients = java.util.Set.copyOf(recipients);
     }
 
     public static IncidentEvent of(EventType type, Long incidentId, Long actorId, String action,

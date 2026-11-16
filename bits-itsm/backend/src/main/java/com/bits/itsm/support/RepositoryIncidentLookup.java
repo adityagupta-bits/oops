@@ -49,6 +49,7 @@ public class RepositoryIncidentLookup implements IncidentLookup {
                 i.getAffectedService(), i.getPriority(), i.getStatus(),
                 i.getReporter().getId(),
                 i.getAssignedTechnician() == null ? null : i.getAssignedTechnician().getId(),
-                i.getCreatedAt(), i.getAcknowledgedAt(), i.getResolvedAt());
+                i.getCreatedAt(), i.getAcknowledgedAt(), i.getResolvedAt(),
+                i.getResponseDeadline(), i.getResolutionDeadline());
     }
 }

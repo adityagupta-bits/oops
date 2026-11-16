@@ -1,47 +1,25 @@
 package com.bits.itsm.notification;
 
-import org.springframework.stereotype.Component;
-
-import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-/** In-app channel: keeps notifications in memory for the dashboards to read. */
-@Component
+@Component @Transactional
 public class InAppChannel implements NotificationChannel {
-
-    private final List<Notification> inbox = new CopyOnWriteArrayList<>();
-    private final Set<String> readIds = ConcurrentHashMap.newKeySet();
-
-    @Override
-    public String name() {
-        return "IN_APP";
+    private final NotificationDeliveryRepository deliveries;
+    public InAppChannel(NotificationDeliveryRepository deliveries) { this.deliveries = deliveries; }
+    @Override public String name() { return "IN_APP"; }
+    @Override public void send(Notification notification) { deliveries.save(new NotificationDelivery(notification, name())); }
+    @Transactional(readOnly = true) public List<InAppNotification> getFor(Long recipientId) {
+        return deliveries.findByRecipientIdAndChannelOrderByCreatedAtDesc(recipientId, name()).stream().map(NotificationDelivery::view).toList();
     }
-
-    @Override
-    public void send(Notification n) {
-        inbox.add(n);
+    @Transactional(readOnly = true) public long unreadCount(Long recipientId) {
+        return deliveries.countByRecipientIdAndChannelAndReadAtIsNull(recipientId, name());
     }
-
-    /** Notifications for one user, newest first. */
-    public List<InAppNotification> getFor(Long recipientId) {
-        return inbox.stream()
-                .filter(n -> n.recipientId().equals(recipientId))
-                .sorted(Comparator.comparing(Notification::timestamp).thenComparing(Notification::id).reversed())
-                .map(n -> new InAppNotification(n.id(), n.recipientId(), n.type().name(), n.incidentId(),
-                        n.title(), n.message(), n.timestamp(), readIds.contains(n.id())))
-                .toList();
-    }
-
-    /** Marks one of the user's own notifications as read. Returns false if it does not exist or is not theirs. */
     public boolean markRead(String notificationId, Long recipientId) {
-        boolean ownedByUser = inbox.stream()
-                .anyMatch(n -> n.id().equals(notificationId) && n.recipientId().equals(recipientId));
-        if (ownedByUser) {
-            readIds.add(notificationId);
-        }
-        return ownedByUser;
+        var delivery = deliveries.findById(notificationId).orElse(null);
+        if (delivery == null || !delivery.getRecipientId().equals(recipientId) || !delivery.getChannel().equals(name())) return false;
+        delivery.markRead();
+        return true;
     }
 }

@@ -90,6 +90,7 @@ class PostgresAssignmentTests {
         assertEquals(id, after.get("id").asLong()); assertEquals(before.get("status"),after.get("status"));
         assertEquals(before.get("createdAt"),after.get("createdAt")); assertEquals(before.get("acknowledgedAt"),after.get("acknowledgedAt")); assertEquals(before.get("notes"),after.get("notes"));
         assertTrue(after.toString().contains("TRANSFER_APPROVED"));
+        assertEquals(1, jdbc.queryForObject("select count(*) from audit_events where incident_id = ? and action = 'TECHNICIAN_CHANGED'", Integer.class, id));
         assertFalse(get("student01", "/api/incidents/" + id, 200).toString().contains("Private transfer"));
     }
     @Test void rejectionCancellationAndStaleRequestDoNotChangeOwnership() throws Exception {

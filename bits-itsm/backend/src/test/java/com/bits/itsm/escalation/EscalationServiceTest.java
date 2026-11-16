@@ -23,10 +23,18 @@ class EscalationServiceTest {
     private Recorder recorder;
     private EscalationService service;
 
+    @Test
+    void rejectsInvalidEscalationIntervals() {
+        for (double interval : new double[] {0, -1, Double.NaN, Double.POSITIVE_INFINITY}) {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                    () -> new EscalationService(new SlaCalculator(1.0), com.bits.itsm.testsupport.TestData.scheduledEvents(busWith(recorder)), interval));
+        }
+    }
+
     @BeforeEach
     void setUp() {
         recorder = new Recorder();
-        service = new EscalationService(new SlaCalculator(1.0), busWith(recorder), 5);
+        service = new EscalationService(new SlaCalculator(1.0), com.bits.itsm.testsupport.TestData.scheduledEvents(busWith(recorder)), 5);
     }
 
     private static IncidentSnapshot p1(IncidentStatus status) {

@@ -3,12 +3,10 @@ package com.bits.itsm.notification;
 import com.bits.itsm.event.IncidentEvent;
 import com.bits.itsm.support.IncidentLabel;
 
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.UUID;
 
 /** Factory: builds the right Notification (title + wording) for an event and a recipient. */
 public final class NotificationFactory {
-
-    private static final AtomicLong SEQUENCE = new AtomicLong();
 
     private NotificationFactory() {
     }
@@ -72,7 +70,7 @@ public final class NotificationFactory {
                 message = detail;
             }
         }
-        String id = String.format("NT-%06d", SEQUENCE.incrementAndGet());
+        String id = UUID.randomUUID().toString();
         return new Notification(id, recipientId, e.type(), e.incidentId(), title, message, e.timestamp());
     }
 }

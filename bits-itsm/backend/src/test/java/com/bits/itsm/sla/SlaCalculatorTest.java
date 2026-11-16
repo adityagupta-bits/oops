@@ -18,6 +18,28 @@ class SlaCalculatorTest {
     private final SlaCalculator calc = new SlaCalculator(1.0);
 
     @Test
+    void savedDeadlinesOverrideDefaultsAndDemoScale() {
+        var i = new IncidentSnapshot(1L, "Network outage", "Connection unavailable",
+                com.bits.itsm.incident.Incident.Category.NETWORK,
+                com.bits.itsm.incident.Incident.ItService.CAMPUS_WIFI,
+                Priority.P1, IncidentStatus.ASSIGNED, 101L, 201L, T0, null, null,
+                T0.plusSeconds(600), T0.plusSeconds(3600));
+        var demoCalculator = new SlaCalculator(0.01);
+        assertEquals(T0.plusSeconds(600), demoCalculator.responseDeadline(i));
+        assertEquals(T0.plusSeconds(3600), demoCalculator.resolutionDeadline(i));
+        assertEquals(SlaStatus.ON_TRACK, demoCalculator.evaluate(i, T0.plusSeconds(400)));
+        assertEquals(SlaStatus.AT_RISK, demoCalculator.evaluate(i, T0.plusSeconds(480)));
+        assertEquals(SlaStatus.BREACHED, demoCalculator.evaluate(i, T0.plusSeconds(601)));
+    }
+
+    @Test
+    void rejectsInvalidTimeScales() {
+        for (double scale : new double[] {0, -1, Double.NaN, Double.POSITIVE_INFINITY}) {
+            assertThrows(IllegalArgumentException.class, () -> new SlaCalculator(scale));
+        }
+    }
+
+    @Test
     void targetsMatchTheProblemStatementTable() {
         assertEquals(Duration.ofMinutes(5), calc.responseTarget(Priority.P1));
         assertEquals(Duration.ofMinutes(30), calc.resolutionTarget(Priority.P1));

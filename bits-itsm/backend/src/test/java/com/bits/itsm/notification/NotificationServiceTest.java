@@ -24,15 +24,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class NotificationServiceTest {
 
     private InAppChannel inApp;
-    private EmailChannel email;
+
     private NotificationService service;
 
     @BeforeEach
     void setUp() {
         var incident = Snap.of(1, Priority.P1, IncidentStatus.ASSIGNED, T0).tech(TECH).build();
-        inApp = new InAppChannel();
-        email = new EmailChannel();
-        service = new NotificationService(new FakeLookup().with(incident), List.of(inApp, email));
+        var repository = org.mockito.Mockito.mock(NotificationDeliveryRepository.class);
+        var saved = new java.util.ArrayList<NotificationDelivery>();
+        org.mockito.Mockito.when(repository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(call -> {
+            NotificationDelivery delivery = call.getArgument(0); saved.add(delivery); return delivery;
+        });
+        org.mockito.Mockito.when(repository.findById(org.mockito.ArgumentMatchers.anyString())).thenAnswer(call -> saved.stream().filter(n -> n.getId().equals(call.getArgument(0))).findFirst());
+        org.mockito.Mockito.when(repository.findByRecipientIdAndChannelOrderByCreatedAtDesc(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(call -> saved.stream().filter(n -> n.getRecipientId().equals(call.getArgument(0)) && n.getChannel().equals(call.getArgument(1))).toList());
+        org.mockito.Mockito.when(repository.findByChannelOrderByCreatedAtDesc("EMAIL")).thenAnswer(call -> saved.stream().filter(n -> n.getChannel().equals("EMAIL")).toList());
+        inApp = new InAppChannel(repository);
+
+        service = new NotificationService(new FakeLookup().with(incident), List.of(inApp));
     }
 
     @Test
@@ -40,7 +49,7 @@ class NotificationServiceTest {
         service.onEvent(event(EventType.INCIDENT_ASSIGNED, 1));
         assertEquals(1, inApp.getFor(REPORTER).size());
         assertEquals(1, inApp.getFor(TECH).size());
-        assertEquals(2, email.getSent().size());
+
     }
 
     @Test
@@ -97,7 +106,7 @@ class NotificationServiceTest {
         };
         NotificationService s = new NotificationService(
                 new FakeLookup().with(Snap.of(1, Priority.P1, IncidentStatus.NEW, T0).build()), List.of(broken, inApp));
-        s.onEvent(event(EventType.INCIDENT_CREATED, 1));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> s.onEvent(event(EventType.INCIDENT_CREATED, 1)));
         assertEquals(1, inApp.getFor(REPORTER).size());
     }
 

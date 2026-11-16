@@ -64,7 +64,7 @@ public final class TestData {
 
         public IncidentSnapshot build() {
             return new IncidentSnapshot(id, title, description, Incident.Category.NETWORK, service, priority, status,
-                    reporterId, technicianId, createdAt, acknowledgedAt, resolvedAt);
+                    reporterId, technicianId, createdAt, acknowledgedAt, resolvedAt, null, null);
         }
     }
 
@@ -78,6 +78,21 @@ public final class TestData {
 
     public static EventBus busWith(IncidentObserver... observers) {
         return new EventBus(List.of(observers));
+    }
+
+    public static com.bits.itsm.sla.ScheduledEvents scheduledEvents(EventBus bus) {
+        return new com.bits.itsm.sla.ScheduledEvents(null, bus) {
+            private final Map<String, IncidentEvent> saved = new LinkedHashMap<>();
+            @Override public void publishOnce(String key, IncidentEvent event) {
+                if (saved.putIfAbsent(key, event) == null) bus.publish(event);
+            }
+            @Override public List<com.bits.itsm.escalation.EscalationRecord> escalations() {
+                Map<Long, com.bits.itsm.escalation.EscalationRecord> latest = new LinkedHashMap<>();
+                saved.values().stream().filter(e -> e.type() == EventType.INCIDENT_ESCALATED).forEach(e ->
+                    latest.put(e.incidentId(), new com.bits.itsm.escalation.EscalationRecord(e.incidentId(), e.next(), e.description(), e.timestamp())));
+                return List.copyOf(latest.values());
+            }
+        };
     }
 
     public static long count(Recorder r, EventType type) {

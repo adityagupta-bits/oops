@@ -36,8 +36,12 @@ public class WorkloadService {
         }
     }
     public List<AssignmentStrategy.Candidate> candidates(Incident incident) {
-        Map<Long, Long> loads = new HashMap<>(); all().forEach(w -> loads.put(w.id(), w.total()));
+        Map<Long, Workload> loads = new HashMap<>(); all().forEach(w -> loads.put(w.id(), w));
         return users.findTechnicians().stream().filter(t -> !incident.participates(t.getId()))
-                .map(t -> new AssignmentStrategy.Candidate(t, loads.getOrDefault(t.getId(), 0L))).toList();
+                .map(t -> {
+                    Workload load = loads.get(t.getId());
+                    // Primary work counts twice, collaboration once, with extra weight for P1/P2.
+                    return new AssignmentStrategy.Candidate(t, load.total(), load.activePrimary() * 2 + load.activeCollaboration() + load.highPriority() * 2);
+                }).toList();
     }
 }

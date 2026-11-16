@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiRequest, apiPost, apiSend } from './api.js';
 import { readableLabel } from './MyIncidents.jsx';
+import PriorityConfiguration from './PriorityConfiguration.jsx';
 
 const skills = ['NETWORK', 'HARDWARE', 'SOFTWARE', 'DATABASE', 'AUTHENTICATION', 'SECURITY', 'APPLICATION_SUPPORT', 'CLOUD', 'STORAGE'];
 const date = value => value ? new Date(value).toLocaleString() : 'Not reviewed';
@@ -108,6 +109,7 @@ export default function AssignmentManagement({ mode, role, userId }) {
   const rows = mode === 'workload' && data ? admin ? data : [data] : [];
   const requests = Array.isArray(data) ? data.filter(item => (!status || item.status === status) && `${item.id} ${item.incidentId} ${item.reason}`.toLowerCase().includes(search.trim().toLowerCase())) : [];
   return <>
+    {mode === 'strategy' && <PriorityConfiguration />}
     <div className="report-actions"><button className="report-clear" disabled={loading} onClick={() => setRefresh(value => value + 1)}>Refresh {mode === 'workload' ? 'Workload' : mode === 'strategy' ? 'Strategy' : 'Requests'}</button></div>
     {message && <p role="status">{message}</p>}
     {loading ? <p role="status">Loading {mode}…</p> : error ? <p className="report-error" role="alert">{error}</p> : mode === 'strategy' ? <StrategyForm key={refresh} current={data} onSaved={saved} /> : mode === 'workload' ? <>

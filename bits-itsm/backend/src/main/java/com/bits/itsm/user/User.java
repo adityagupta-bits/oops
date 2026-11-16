@@ -43,6 +43,10 @@ public abstract class User {
     }
 
     public Long getId() { return id; }
+    public void rename(String name) {
+        if (name == null || name.isBlank() || name.length() > 100) throw new IllegalArgumentException("Provide a name of 1-100 characters.");
+        this.name = name.trim();
+    }
     public String getName() { return name; }
     public String getEmail() { return email; }
     @JsonIgnore

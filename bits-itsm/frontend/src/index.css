@@ -94,7 +94,6 @@ button:focus-visible { outline: 3px solid #389ab8; outline-offset: 3px; }
 .dashboard-sidebar nav .dashboard-nav-active { color: #b8f0f4; background: #224866; box-shadow: inset 3px 0 #8bdce5; font-weight: 600; }
 .dashboard-sidebar nav button { background: transparent; color: #b9c9da; }
 .student-dashboard button:disabled { cursor: not-allowed; }
-.coming-soon { flex-shrink: 0; font-size: 9px; color: #b9c9da; border: 1px solid #ffffff30; border-radius: 4px; padding: 3px 5px; }
 .dashboard-sidebar-note { margin: auto 12px 0; padding-top: 40px; font-size: 12px; line-height: 1.8; color: #afc5d9; }
 .dashboard-workspace { display: flex; flex-direction: column; min-width: 0; }
 .dashboard-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 36px; background: #fff; border-bottom: 1px solid #e2e8f0; }

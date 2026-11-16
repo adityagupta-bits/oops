@@ -35,8 +35,18 @@ function DraftForm({ kind, incident, onAction }) {
     if (!onAction) { setPreview(true); return; }
     setBusy(true); setSaved(false);
     try {
-      const action = kind === 'verification' ? 'verify' : kind === 'reply' ? 'reply' : 'feedback';
-      const payload = kind === 'verification' ? { confirmed: values.decision === 'CONFIRM', reason: values.explanation || '' } : kind === 'reply' ? { content: [values.message, values.additional].filter(Boolean).join('\n') } : { rating: Number(values.rating), comment: values.comment || '' };
+      let action;
+      let payload;
+      if (kind === 'verification') {
+        action = 'verify';
+        payload = { confirmed: values.decision === 'CONFIRM', reason: values.explanation || '' };
+      } else if (kind === 'reply') {
+        action = 'reply';
+        payload = { content: [values.message, values.additional].filter(Boolean).join('\n') };
+      } else {
+        action = 'feedback';
+        payload = { rating: Number(values.rating), comment: values.comment || '' };
+      }
       await onAction(action, payload);
       setValues({}); setSaved(true);
     } catch (error) { setError(error.message); }
@@ -55,8 +65,27 @@ function DraftForm({ kind, incident, onAction }) {
   </form>;
 }
 
+function EditReport({ incident, onAction }) {
+  const [title, setTitle] = useState(incident.title);
+  const [description, setDescription] = useState(incident.description);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  async function save(event) {
+    event.preventDefault(); setBusy(true); setMessage('');
+    try { await onAction('edit', { title, description }); setMessage('Report updated.'); }
+    catch (error) { setMessage(error.message); }
+    finally { setBusy(false); }
+  }
+  return <form className="report-form" onSubmit={save}><h3>Edit report</h3><p>You can edit the report until it is classified.</p>
+    <div className="report-field"><label htmlFor="edit-title">Title</label><input id="edit-title" required maxLength="100" value={title} onChange={event => setTitle(event.target.value)} /></div>
+    <div className="report-field"><label htmlFor="edit-description">Description</label><textarea id="edit-description" required minLength="20" maxLength="2000" value={description} onChange={event => setDescription(event.target.value)} /></div>
+    <button className="incident-view" disabled={busy}>{busy ? 'Saving?' : 'Save report'}</button>{message && <p role="status">{message}</p>}
+  </form>;
+}
+
 export default function StudentIncidentActions({ incident, onAction }) {
   if (onAction) return <>
+    {incident.status === 'NEW' && <EditReport key={incident.id} incident={incident} onAction={onAction} />}
     <section className="student-detail-section"><h3>Support Communication</h3>
       {incident.notes.length ? <ol className="technician-updates">{incident.notes.map(note => <li key={note.id}><strong>{note.author.name}</strong> · <time dateTime={note.createdAt}>{new Date(note.createdAt).toLocaleString()}</time><p>{note.content}</p></li>)}</ol> : <p>No support messages yet.</p>}
       {incident.status === 'IN_PROGRESS' && incident.notes.some(note => note.kind === 'INFORMATION_REQUEST') && <DraftForm kind="reply" incident={incident} onAction={onAction} />}

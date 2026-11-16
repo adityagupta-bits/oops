@@ -29,7 +29,8 @@ class SlaMonitorTest {
         recorder = new Recorder();
         lookup = new FakeLookup();
         EventBus bus = busWith(recorder);
-        monitor = new SlaMonitor(lookup, calc, bus, new EscalationService(calc, bus, 5));
+        var events = com.bits.itsm.testsupport.TestData.scheduledEvents(bus);
+        monitor = new SlaMonitor(lookup, calc, events, new EscalationService(calc, events, 5));
     }
 
     @Test
@@ -60,6 +61,25 @@ class SlaMonitorTest {
     void resolutionDeadlineIsMonitoredAfterAcknowledgement() {
         lookup.with(snapshot(1, Priority.P2, IncidentStatus.IN_PROGRESS, T0));
         monitor.check(T0.plusSeconds(121 * 60));
+        assertEquals(1, count(recorder, EventType.SLA_BREACHED));
+        assertTrue(recorder.events.get(0).description().contains("resolution"));
+    }
+
+    @Test
+    void recordsLateAcknowledgementEvenWhenItHappensBetweenChecks() {
+        lookup.with(com.bits.itsm.testsupport.TestData.Snap.of(1, Priority.P2, IncidentStatus.ACKNOWLEDGED, T0)
+                .ack(T0.plusSeconds(16 * 60)).build());
+        monitor.check(T0.plusSeconds(20 * 60));
+        monitor.check(T0.plusSeconds(21 * 60));
+        assertEquals(1, count(recorder, EventType.SLA_BREACHED));
+        assertTrue(recorder.events.get(0).description().contains("response"));
+    }
+
+    @Test
+    void recordsLateResolutionAfterTheIncidentHasClosed() {
+        lookup.with(com.bits.itsm.testsupport.TestData.Snap.of(1, Priority.P2, IncidentStatus.CLOSED, T0)
+                .ack(T0.plusSeconds(10 * 60)).resolved(T0.plusSeconds(121 * 60)).build());
+        monitor.check(T0.plusSeconds(130 * 60));
         assertEquals(1, count(recorder, EventType.SLA_BREACHED));
         assertTrue(recorder.events.get(0).description().contains("resolution"));
     }

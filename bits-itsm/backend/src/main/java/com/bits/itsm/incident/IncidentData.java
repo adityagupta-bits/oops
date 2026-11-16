@@ -12,6 +12,7 @@ public final class IncidentData {
     public record Create(@NotBlank @Size(max = 100) String title, @NotBlank @Size(min = 20, max = 2000) String description,
             @NotNull Category category, @NotNull ItService affectedService, @NotNull Level impact, @NotNull Level urgency) { }
     public record Classification(@NotNull Category category) { }
+    public record Edit(@NotBlank @Size(max = 100) String title, @NotBlank @Size(min = 20, max = 2000) String description) { }
     public record Assignment(@NotNull @Positive Long technicianId) { }
     public record Note(@NotBlank @Size(max = 2000) String content, @NotNull Visibility visibility) { }
     public record Message(@NotBlank @Size(max = 2000) String content) { }
@@ -26,7 +27,7 @@ public final class IncidentData {
     public record View(Long id, String title, String description, Person reporter, Category category, ItService affectedService,
             String serviceLabel, Level impact, Level urgency, Priority priority, IncidentStatus status, Person assignedTechnician,
             Instant createdAt, Instant updatedAt, Instant acknowledgedAt, Instant resolvedAt, Instant verifiedAt, Instant closedAt,
-            String resolutionSummary, String resolutionSteps, List<NoteView> notes, List<HistoryView> history, FeedbackView feedback, boolean primaryOwner, List<TeamMember> collaborators) { }
+            String resolutionSummary, String resolutionSteps, List<NoteView> notes, List<HistoryView> history, FeedbackView feedback, boolean primaryOwner, List<TeamMember> collaborators, com.bits.itsm.intelligence.CategorySuggester.Suggestion categorySuggestion, Level criticality, Instant responseDeadline, Instant resolutionDeadline, SlaClock.Status responseSla, SlaClock.Status resolutionSla) { }
     public record Option(String value, String label) { }
-    public record Options(List<Option> categories, List<Option> services, List<Person> technicians) { }
+    public record Options(List<Option> categories, List<Option> services) { }
 }

@@ -11,7 +11,7 @@ public class SkillBasedAssignment implements AssignmentStrategy {
     public Optional<Technician> assign(Incident incident, List<Candidate> candidates) {
         return candidates.stream().filter(c -> c.eligible(incident.requiredSkill()))
                 .min(Comparator.<Candidate>comparingInt(c -> incident.preferredSkill() != null && c.technician().getSkills().contains(incident.preferredSkill()) ? 0 : 1)
-                        .thenComparingLong(Candidate::workload).thenComparing(c -> c.technician().getId()))
+                        .thenComparingLong(Candidate::weightedLoad).thenComparing(c -> c.technician().getId()))
                 .map(Candidate::technician);
     }
 }

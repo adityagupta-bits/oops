@@ -31,6 +31,7 @@ public class DuplicateDetector {
                              @Value("${itsm.duplicate.threshold:0.4}") double threshold) {
         this.lookup = lookup;
         this.bus = bus;
+        if (!Double.isFinite(threshold) || threshold <= 0 || threshold > 1) throw new IllegalArgumentException("Duplicate threshold must be greater than zero and at most one.");
         this.threshold = threshold;
     }
 
@@ -44,6 +45,8 @@ public class DuplicateDetector {
                 .filter(o -> !o.id().equals(candidate.id()))
                 .filter(IncidentStates::isOpen)
                 .filter(o -> candidate.service() == o.service())
+                .filter(o -> candidate.category() == o.category() || candidate.category() == com.bits.itsm.incident.Incident.Category.OTHER || o.category() == com.bits.itsm.incident.Incident.Category.OTHER)
+                .filter(o -> !o.createdAt().isBefore(candidate.createdAt().minus(java.time.Duration.ofDays(30))))
                 .map(o -> new DuplicateMatch(o.id(), o.title(), TextSimilarity.similarity(candidateText, textOf(o))))
                 .filter(m -> m.similarity() >= threshold)
                 .sorted(Comparator.comparingDouble(DuplicateMatch::similarity).reversed())

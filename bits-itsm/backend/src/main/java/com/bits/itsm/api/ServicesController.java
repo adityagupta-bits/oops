@@ -41,17 +41,18 @@ public class ServicesController {
     private final DuplicateDetector duplicates;
     private final IncidentLookup lookup;
     private final UserRepository users;
+    private final com.bits.itsm.incident.IncidentRepository incidents;
 
     public ServicesController(InAppChannel inApp, AuditLogger audit, SlaMonitor slaMonitor,
                               EscalationService escalation, DuplicateDetector duplicates,
-                              IncidentLookup lookup, UserRepository users) {
+                              IncidentLookup lookup, UserRepository users, com.bits.itsm.incident.IncidentRepository incidents) {
         this.inApp = inApp;
         this.audit = audit;
         this.slaMonitor = slaMonitor;
         this.escalation = escalation;
         this.duplicates = duplicates;
         this.lookup = lookup;
-        this.users = users;
+        this.users = users; this.incidents = incidents;
     }
 
     private Long currentUserId(Authentication auth) {
@@ -59,10 +60,21 @@ public class ServicesController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sign in with an enabled account."));
     }
 
+    public record Knowledge(Long incidentId, String title, String category, String service, String summary, String steps) { }
+    @GetMapping("/technician/knowledge") @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Knowledge> knowledge() {
+        return incidents.findAllByOrderByCreatedAtDesc().stream()
+                .filter(i -> i.getStatus() == com.bits.itsm.incident.IncidentStatus.VERIFIED || i.getStatus() == com.bits.itsm.incident.IncidentStatus.CLOSED)
+                .map(i -> new Knowledge(i.getId(), i.getTitle(), i.getCategory().name(), i.getAffectedService().getLabel(), i.getResolutionSummary(), i.getResolutionSteps())).toList();
+    }
+
     @GetMapping("/notifications")
     public List<InAppNotification> myNotifications(Authentication auth) {
         return inApp.getFor(currentUserId(auth));
     }
+
+    @GetMapping("/notifications/unread-count")
+    public Map<String, Long> unread(Authentication auth) { return Map.of("count", inApp.unreadCount(currentUserId(auth))); }
 
     @PostMapping("/notifications/{notificationId}/read")
     public Map<String, Boolean> markRead(@PathVariable String notificationId, Authentication auth) {
@@ -80,11 +92,6 @@ public class ServicesController {
     @GetMapping("/admin/audit/{incidentId}")
     public List<AuditRecord> auditFor(@PathVariable Long incidentId) {
         return audit.getByIncident(incidentId);
-    }
-
-    @GetMapping("/admin/sla")
-    public List<SlaSnapshot> sla() {
-        return slaMonitor.snapshots(Instant.now());
     }
 
     @GetMapping("/admin/sla/violations")
