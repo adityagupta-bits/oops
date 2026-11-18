@@ -15,6 +15,7 @@ public class ScheduledEvents {
 
     @Transactional
     public void publishOnce(String key, IncidentEvent event) {
+        // This table is written with SQL so the database can ignore duplicate events.
         int inserted = jdbc.update("insert into scheduled_events(id, incident_id, type, next_level, description, occurred_at) values (?, ?, ?, ?, ?, ?) on conflict (id) do nothing",
                 key, event.incidentId(), event.type().name(), event.next(), event.description(), java.sql.Timestamp.from(event.timestamp()));
         if (inserted == 1) bus.publish(event);
