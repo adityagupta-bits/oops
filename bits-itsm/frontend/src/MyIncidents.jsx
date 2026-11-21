@@ -3,6 +3,7 @@ import StudentIncidentActions from './StudentIncidentActions.jsx';
 import { users } from './demoData.js';
 import { apiRequest } from './api.js';
 import IncidentManagementActions from './IncidentManagementActions.jsx';
+import { filterAndSortIncidents, incidentPriorityLabels, optionsForStatuses, priorityValue } from './incidentFilters.js';
 
 // Shared display groups keep both pages' summary counts consistent.
 export const incidentStatuses = {
@@ -39,7 +40,7 @@ export function IncidentSummary({ incidents }) {
   );
 }
 
-const emptyFilters = { search: '', status: '', priority: '', category: '', service: '', fromDate: '' };
+const emptyFilters = { search: '', status: '', priority: '', category: '', service: '', fromDate: '', sort: 'NEWEST' };
 
 export default function MyIncidents({ incidents, initialIncidentId, liveRole, team, options, onAction }) {
   const [filters, setFilters] = useState(emptyFilters);
@@ -53,15 +54,8 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
     if (incident) { setSelectedIncident(incident); if (!detailsDialog.current.open) detailsDialog.current.showModal(); }
   }, [initialIncidentId, incidents]);
   const categories = [...new Set(incidents.map((incident) => incident.category))].sort();
-  const query = filters.search.trim().toLowerCase();
-  const filteredIncidents = incidents.filter((incident) =>
-    (String(incident.id).toLowerCase().includes(query) || incident.title.toLowerCase().includes(query)) &&
-    (!filters.status || incident.status === filters.status) &&
-    (!filters.priority || incident.priority === filters.priority) &&
-    (!filters.category || incident.category === filters.category) &&
-    (!filters.service || incident.affectedService === filters.service) &&
-    (!filters.fromDate || incident.createdAt.slice(0, 10) >= filters.fromDate),
-  );
+  const filteredIncidents = filterAndSortIncidents(incidents, filters);
+  const statusOptions = optionsForStatuses(incidents);
 
   function changeFilter(event) {
     const { name, value } = event.target;
@@ -96,20 +90,20 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
       <div className="incident-filters" role="search" aria-label="Search and filter incidents">
         <div className="report-field">
           <label htmlFor="incident-search">Search incidents</label>
-          <input id="incident-search" type="search" name="search" placeholder="Incident ID or title" value={filters.search} onChange={changeFilter} />
+          <input id="incident-search" type="search" name="search" placeholder="Incident ID, title or description" value={filters.search} onChange={changeFilter} />
         </div>
         <div className="report-field">
           <label htmlFor="filter-status">Status</label>
           <select id="filter-status" name="status" value={filters.status} onChange={changeFilter}>
             <option value="">All statuses</option>
-            {Object.entries(incidentStatuses).map(([value, status]) => <option key={value} value={value}>{status.label}</option>)}
+            {statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
         <div className="report-field">
           <label htmlFor="filter-priority">Priority</label>
           <select id="filter-priority" name="priority" value={filters.priority} onChange={changeFilter}>
             <option value="">All priorities</option>
-            {['PENDING', 'P1', 'P2', 'P3', 'P4'].map((priority) => <option key={priority}>{priority}</option>)}
+            {Object.entries(incidentPriorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
         <div className="report-field">
@@ -121,6 +115,7 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
         </div>
         <div className="report-field"><label htmlFor="filter-service">Affected service</label><select id="filter-service" name="service" value={filters.service} onChange={changeFilter}><option value="">All services</option>{[...new Set(incidents.map(item => item.affectedService))].filter(Boolean).map(service => <option key={service} value={service}>{readableLabel(service)}</option>)}</select></div>
         <div className="report-field"><label htmlFor="filter-date">Reported on or after</label><input id="filter-date" type="date" name="fromDate" value={filters.fromDate} onChange={changeFilter} /></div>
+        <div className="report-field"><label htmlFor="filter-sort">Sort by date</label><select id="filter-sort" name="sort" value={filters.sort} onChange={changeFilter}><option value="NEWEST">Newest first</option><option value="OLDEST">Oldest first</option></select></div>
         <button type="button" className="report-clear" onClick={() => setFilters(emptyFilters)}>Clear Filters</button>
       </div>
 
@@ -128,9 +123,9 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
         <div className="dashboard-section-heading">
           <h2 id="incident-list-title">{title}</h2><span>{liveRole ? 'Saved incidents' : 'Demo data'}</span>
         </div>
-        <p className="incident-results" role="status">{filteredIncidents.length} of {incidents.length} incidents</p>
+        <p className="incident-results" role="status">{filteredIncidents.length} matching {filteredIncidents.length === 1 ? 'incident' : 'incidents'} · {incidents.length} loaded</p>
         {incidents.length === 0 ? <p className="dashboard-empty">No incidents reported yet.</p> : filteredIncidents.length === 0 ? (
-          <p className="dashboard-empty">No incidents match your search or filters.</p>
+          <p className="dashboard-empty">No incidents match these filters. Try a different search or clear the filters.</p>
         ) : (
           <div className="dashboard-table-scroll" role="region" aria-labelledby="incident-list-title" tabIndex={0}>
             <table>
@@ -141,7 +136,7 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
                     <td className="dashboard-incident-id">{incident.id}</td>
                     <td className="dashboard-incident-title">{incident.title}</td>
                     <td>{readableLabel(incident.category)}</td>
-                    <td><span className={`incident-priority priority-${incident.priority.toLowerCase()}`}>{incident.priority}</span></td>
+                    <td><span className={`incident-priority priority-${priorityValue(incident.priority).toLowerCase()}`}>{incidentPriorityLabels[priorityValue(incident.priority)] || readableLabel(incident.priority)}</span></td>
                     <td><span className={`incident-status status-${incidentStatuses[incident.status]?.group}`}>{incidentStatuses[incident.status]?.label || readableLabel(incident.status)}</span></td>
                     <td><time dateTime={incident.createdAt}>{incident.createdAt.slice(0, 10)}</time></td>
                     <td><button type="button" className="incident-view" aria-label={`View Details for ${incident.id}`} onClick={() => viewDetails(incident)}>View Details</button></td>
@@ -165,7 +160,8 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
             ['Incident ID', selectedIncident.id], ['Title', selectedIncident.title], ['Description', selectedIncident.description],
             ['Reporter', selectedIncident.reporter.name], ['Category', readableLabel(selectedIncident.category)], ['Affected Service', selectedIncident.serviceLabel],
             ['Business criticality', readableLabel(selectedIncident.criticality)], ['Response SLA', readableLabel(selectedIncident.responseSla)], ['Resolution SLA', readableLabel(selectedIncident.resolutionSla)], ['Response deadline', selectedIncident.responseDeadline || 'Pending classification'], ['Resolution deadline', selectedIncident.resolutionDeadline || 'Pending classification'],
-            ['Impact', readableLabel(selectedIncident.impact)], ['Urgency', readableLabel(selectedIncident.urgency)], ['Priority', readableLabel(selectedIncident.priority)],
+            ['Impact', readableLabel(selectedIncident.impact)], ['Urgency', readableLabel(selectedIncident.urgency)], ['Priority', selectedIncident.priority === 'PENDING' ? 'Awaiting Classification' : readableLabel(selectedIncident.priority)],
+            ...(selectedIncident.needsClassificationReview ? [['Classification Status', 'Awaiting Administrator Review' + (selectedIncident.classificationNotes ? ` (${selectedIncident.classificationNotes})` : '')]] : []),
             ['Status', readableLabel(selectedIncident.status)], ['Assigned Technician', selectedIncident.assignedTechnician?.name || 'Not assigned'],
             ...['createdAt', 'updatedAt', 'acknowledgedAt', 'resolvedAt', 'verifiedAt', 'closedAt'].filter(field => selectedIncident[field]).map(field => [field.replace(/([A-Z])/g, ' $1'), new Date(selectedIncident[field]).toLocaleString()]),
             ['Resolution Summary', selectedIncident.resolutionSummary || 'No resolution recorded'], ['Steps Performed', selectedIncident.resolutionSteps || 'Not recorded'],

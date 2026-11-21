@@ -247,6 +247,19 @@ button:focus-visible { outline: 3px solid #389ab8; outline-offset: 3px; }
 .student-detail-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
 .student-detail-section h3 { margin: 0 0 18px; font-size: 17px; }
 .student-draft-form { margin-top: 20px; }
+.common-problems-section { margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid #e2e8f0; }
+.common-problems-heading { margin: 0 0 14px; font-size: 16px; font-weight: 600; color: #172e4c; letter-spacing: -.2px; }
+.dashboard-user-area { display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
+.technician-availability-control { display: flex; align-items: center; gap: 8px; position: relative; }
+.availability-label { font-size: 12px; font-weight: 600; color: #172e4c; }
+.availability-select { height: 36px; padding: 0 10px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1px solid #cbd5e1; background: #fff; color: #172e4c; cursor: pointer; outline: none; transition: border-color .15s, box-shadow .15s; }
+.availability-select:focus { border-color: #3c8da4; box-shadow: 0 0 0 3px #3c8da420; }
+.availability-select.status-available { border-color: #10b981; color: #065f46; background: #ecfdf5; }
+.availability-select.status-busy { border-color: #f59e0b; color: #92400e; background: #fffbeb; }
+.availability-select.status-unavailable { border-color: #ef4444; color: #991b1b; background: #fef2f2; }
+.availability-feedback { font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px; white-space: nowrap; animation: arrive .2s ease-out; }
+.availability-feedback.feedback-success { background: #d1fae5; color: #065f46; }
+.availability-feedback.feedback-error { background: #fee2e2; color: #991b1b; }
 .student-draft-form .technician-draft .incident-details { margin-top: 16px; }
 .admin-skill-options, .admin-confirmation { grid-column: 1 / -1; }
 .admin-skill-options { display: flex; flex-wrap: wrap; gap: 8px 20px; }
@@ -303,3 +316,19 @@ button:focus-visible { outline: 3px solid #389ab8; outline-offset: 3px; }
 .auth-switch button { padding: 4px; border: 0; background: transparent; color: #286c82; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .auth-switch button:focus-visible { outline: 2px solid #3c8da4; outline-offset: 3px; }
 .auth-options button[aria-pressed="true"] { background: #203657; color: white; }
+.suggested-solutions { margin: 18px 0; }
+.suggested-solution-list { display: grid; gap: 12px; }
+.suggested-solution { border: 1px solid #dbe4ee; border-radius: 10px; padding: 14px; background: #fbfdff; }
+.suggested-solution h4 { margin: 0; color: #172e4c; }
+.suggested-solution .dashboard-section-heading { align-items: flex-start; gap: 12px; }
+.suggested-solution details, .admin-section details { margin-top: 10px; }
+.suggested-solution summary, .admin-section summary { color: #245c7a; font-weight: 650; cursor: pointer; }
+.suggested-resolution-steps { white-space: pre-wrap; }
+.match-badge { flex: 0 0 auto; border-radius: 999px; padding: 4px 9px; font-size: 12px; font-weight: 700; }
+.match-high { color: #166534; background: #dcfce7; }
+.match-medium { color: #854d0e; background: #fef3c7; }
+.match-low { color: #334155; background: #e2e8f0; }
+@media (max-width: 600px) {
+  .suggested-solution .dashboard-section-heading { flex-direction: column; }
+  .suggested-solution { padding: 12px; }
+}

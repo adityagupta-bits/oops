@@ -52,20 +52,26 @@ function Review({ request, collaboration, admin, userId, onClose, onSaved }) {
   const [notes, setNotes] = useState('');
   const [details, setDetails] = useState(null);
   const [loads, setLoads] = useState([]);
+  const [destinations, setDestinations] = useState([]);
+  const [destinationId, setDestinationId] = useState(request.proposedTechnician?.id ? String(request.proposedTechnician.id) : '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
     dialog.current.showModal();
-    Promise.all([apiRequest(`incidents/${request.incidentId}`), admin ? apiRequest('admin/technicians/workloads') : Promise.resolve([])])
-      .then(([incident, workloads]) => { if (active) { setDetails(incident); setLoads(workloads); } })
+    Promise.all([apiRequest(`incidents/${request.incidentId}`), admin ? apiRequest('admin/technicians/workloads') : Promise.resolve([]), admin && !collaboration ? apiRequest(`incidents/${request.incidentId}/eligible-technicians`) : Promise.resolve([])])
+      .then(([incident, workloads, eligible]) => { if (active) { setDetails(incident); setLoads(workloads); setDestinations(eligible); } })
       .catch(error => { if (active) setError(error.message); });
     return () => { active = false; };
   }, [request, admin]);
   async function submit(event) {
-    event.preventDefault(); setBusy(true); setError('');
+    event.preventDefault(); setError('');
+    if (admin && !collaboration && event.nativeEvent.submitter.value === 'approve' && !destinationId) { setError('Choose an eligible destination technician before approving.'); return; }
+    setBusy(true);
     try {
-      await apiPost(`${admin ? 'admin' : 'technician'}/${collaboration ? 'collaboration' : 'transfer'}-requests/${request.id}/${event.nativeEvent.submitter.value}`, { notes });
+      const decision = event.nativeEvent.submitter.value;
+      if (admin && decision === 'approve' && !window.confirm('Approve this transfer and reassign the incident to the selected technician?')) return;
+      await apiPost(`${admin ? 'admin' : 'technician'}/${collaboration ? 'collaboration' : 'transfer'}-requests/${request.id}/${decision}`, { notes, ...(admin && !collaboration && decision === 'approve' ? { technicianId: Number(destinationId) } : {}) });
       onSaved(); onClose();
     } catch (error) { setError(error.message); } finally { setBusy(false); }
   }
@@ -73,14 +79,16 @@ function Review({ request, collaboration, admin, userId, onClose, onSaved }) {
     <div className="dashboard-section-heading"><h2 id="request-review-title">{collaboration ? 'Collaboration' : 'Transfer'} Request {request.id}</h2><button className="report-clear" onClick={onClose}>Close</button></div>
     <dl className="incident-details">{[
       ['Incident', `${request.incidentId} · ${request.incidentTitle}`], ['Request Status', readableLabel(request.status)],
-      ['Original Primary', request.primaryTechnician.name], ['Proposed Technician', request.proposedTechnician.name],
+      ['Original Primary', request.primaryTechnician.name], ['Suggested Technician', request.proposedTechnician?.name || 'Not suggested'],
+      ...(!collaboration ? [['Assigned Technician', request.assignedTechnician?.name || 'Not assigned yet']] : []),
       ['Reason', request.reason], ['Requested', date(request.requestedAt)],
       ...(collaboration ? [['Required Skill', readableLabel(request.requiredSkill)], ['Responsibility', request.responsibility]] : [['Handover Notes', request.handoverNotes]]),
       ['Reviewed By', request.reviewedBy?.name || 'Not reviewed'], ['Reviewed At', date(request.reviewedAt)], ['Review Notes', request.reviewNotes || 'None'],
       ...(details ? [['Current Primary', details.assignedTechnician?.name || 'Unassigned'], ['Incident Status', readableLabel(details.status)], ['Description', details.description], ['Priority', details.priority]] : []),
     ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-    {admin && loads.filter(load => [request.primaryTechnician.id, request.proposedTechnician.id].includes(load.id)).map(load => <section className="student-detail-section" key={load.id}><h3>{load.name}</h3><p>{load.skills.map(readableLabel).join(', ')} · {readableLabel(load.availability)}</p><p>Active workload: {load.activePrimary} primary + {load.activeCollaboration} collaboration / {load.maxWorkload} capacity.</p></section>)}
+    {admin && loads.filter(load => [request.primaryTechnician.id, request.proposedTechnician?.id].includes(load.id)).map(load => <section className="student-detail-section" key={load.id}><h3>{load.name}</h3><p>{load.skills.map(readableLabel).join(', ')} · {readableLabel(load.availability)}</p><p>Active workload: {load.activePrimary} primary + {load.activeCollaboration} collaboration / {load.maxWorkload} capacity.</p></section>)}
     {request.status === 'PENDING' && (admin || request.primaryTechnician.id === userId) && <form className="report-form" onSubmit={submit}>
+      {admin && !collaboration && <div className="report-field"><label htmlFor="transfer-destination">Destination technician (required to approve)</label><select id="transfer-destination" value={destinationId} onChange={event => setDestinationId(event.target.value)}><option value="">Choose an eligible technician</option>{destinations.map(person => <option key={person.id} value={person.id}>{person.name} · {person.skills.map(readableLabel).join(', ')} · {readableLabel(person.availability)} · {person.total}/{person.maxWorkload} workload</option>)}</select></div>}
       <div className="report-field"><label htmlFor="request-review-notes">{admin ? 'Review notes' : 'Cancellation reason'}</label><textarea id="request-review-notes" rows={3} required maxLength={2000} value={notes} onChange={event => setNotes(event.target.value)} /></div>
       <div className="report-actions">{admin ? <><button className="incident-view" value="approve" disabled={busy || !details}>Approve Request</button><button className="report-clear" value="reject" disabled={busy}>Reject Request</button></> : <button className="report-clear" value="cancel" disabled={busy}>Cancel Request</button>}</div>
     </form>}
@@ -120,7 +128,7 @@ export default function AssignmentManagement({ mode, role, userId }) {
       {profile && <ProfileForm key={profile.id} technician={profile} onSaved={saved} />}
     </> : <>
       <div className="incident-filters"><div className="report-field"><label htmlFor="request-search">Request, incident or reason</label><input id="request-search" value={search} onChange={event => setSearch(event.target.value)} /></div><div className="report-field"><label htmlFor="request-status">Request status</label><select id="request-status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(value => <option key={value}>{value}</option>)}</select></div><button className="report-clear" onClick={() => { setSearch(''); setStatus(''); }}>Clear Filters</button></div>
-      <Table title={mode === 'transfer' ? 'Transfer Requests' : 'Collaboration Requests'} headers={['Request', 'Incident', 'Primary Technician', 'Proposed Technician', 'Reason', 'Status', 'Requested', 'Action']} rows={requests.map(item => [item.id, `${item.incidentId} · ${item.incidentTitle}`, item.primaryTechnician.name, item.proposedTechnician.name, item.reason, readableLabel(item.status), date(item.requestedAt), <button className="incident-view" onClick={() => setSelected(item)}>Review {item.id}</button>])} />
+      <Table title={mode === 'transfer' ? 'Transfer Requests' : 'Collaboration Requests'} headers={['Request', 'Incident', 'Primary Technician', 'Suggested Technician', ...(mode === 'transfer' ? ['Assigned Technician'] : []), 'Reason', 'Status', 'Requested', 'Action']} rows={requests.map(item => [item.id, `${item.incidentId} · ${item.incidentTitle}`, item.primaryTechnician.name, item.proposedTechnician?.name || 'Not suggested', ...(mode === 'transfer' ? [item.assignedTechnician?.name || 'Not assigned'] : []), item.reason, readableLabel(item.status), date(item.requestedAt), <button className="incident-view" onClick={() => setSelected(item)}>Review {item.id}</button>])} />
     </>}
     {selected && <Review request={selected} collaboration={mode === 'collaboration'} admin={admin} userId={userId} onClose={() => setSelected(null)} onSaved={saved} />}
   </>;

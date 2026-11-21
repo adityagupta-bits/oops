@@ -77,15 +77,15 @@ class IncidentClassificationServiceTest {
 
         service.processSubmission(incident, student);
 
-        assertTrue(incident.isAutoClassified());
-        assertFalse(incident.isNeedsClassificationReview());
+        assertFalse(incident.isAutoClassified());
+        assertTrue(incident.isNeedsClassificationReview());
         assertEquals(ItService.CAMPUS_WIFI, incident.getAffectedService());
         assertEquals(Level.HIGH, incident.getUrgency()); // "exam", "due today"
-        assertEquals(Level.HIGH, incident.getCriticality());
-        // Multiplicative: Impact LOW (1) * Urgency HIGH (3) * Criticality HIGH (3) = 9 -> P3 (P3 >= 4, P2 >= 12)
-        assertEquals(Priority.P3, incident.getPriority());
-        assertEquals(IncidentStatus.CLASSIFIED, incident.getStatus());
-        verify(slaPolicies).capture(incident);
+        // A first-person report does not establish how many people are affected.
+        assertNull(incident.getImpact());
+        assertEquals(Priority.PENDING, incident.getPriority());
+        assertEquals(IncidentStatus.NEW, incident.getStatus());
+        verify(slaPolicies, never()).capture(incident);
     }
 
     @Test

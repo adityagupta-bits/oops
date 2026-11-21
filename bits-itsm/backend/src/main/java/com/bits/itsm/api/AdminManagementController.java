@@ -40,12 +40,16 @@ public class AdminManagementController {
         this.classificationService = classificationService;
         this.incidentService = incidentService;
     }
-    public record UserView(Long id, String name, String email, Role role, boolean enabled, String studentNumber) { }
+    public record UserView(Long id, String name, String email, Role role, boolean enabled, String studentNumber, Technician.Availability availability) { }
     public record NewUser(@NotBlank @Size(max=100) String name, @NotBlank String email, @NotNull Role role,
             @NotBlank @Size(min=8,max=72) String password, @Size(max=30) String studentNumber, TechnicianSkill skill) { }
     public record UserEdit(@NotBlank @Size(max=100) String name, boolean enabled) { }
     public record CatalogEdit(@NotBlank @Size(max=100) String label, boolean enabled, Incident.Level criticality, String keywords) { }
-    private UserView view(User user) { return new UserView(user.getId(), user.getName(), user.getEmail(), user.getRole(), user.isEnabled(), user instanceof Student student ? student.getStudentNumber() : null); }
+    private UserView view(User user) {
+        return new UserView(user.getId(), user.getName(), user.getEmail(), user.getRole(), user.isEnabled(),
+                user instanceof Student student ? student.getStudentNumber() : null,
+                user instanceof Technician technician ? technician.getAvailability() : null);
+    }
     private void audit(Authentication auth, String action, String before, String after, String description) {
         Long actor = users.findByEmail(auth.getName()).filter(User::isEnabled).orElseThrow().getId();
         audit.save(new AuditRecord("AUD-" + UUID.randomUUID(), Instant.now(), actor, null, action, before, after, description));

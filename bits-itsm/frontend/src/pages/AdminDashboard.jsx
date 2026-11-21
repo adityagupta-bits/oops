@@ -4,11 +4,13 @@ import Button27 from '../components/ui/button-27.jsx';
 import Notifications from '../Notifications.jsx';
 import LiveIncidents from '../LiveIncidents.jsx';
 import AssignmentManagement from '../AssignmentManagement.jsx';
+import AdminKnowledgeBase from '../AdminKnowledgeBase.jsx';
 import { incidentStatuses, readableLabel } from '../MyIncidents.jsx';
 import { demoIncidents, users, technicians, technicianSkills, transferRequests, collaborationRequests, services, incidentCategories, slaPolicies, auditLogs, investigationNotes, adminNotifications, relatedIncidentExamples, recommendationExamples, isActive, technicianWorkload } from '../demoData.js';
 
-const pages = ['Dashboard', 'All Incidents', 'Assignment Requests', 'Collaboration Requests', 'Manage Technicians', 'Manage Users', 'IT Services', 'Incident Categories', 'SLA Policies', 'Assignment Strategies', 'Escalations', 'Reports & Analytics', 'Audit Logs', 'Notifications', 'Settings'];
+const pages = ['Dashboard', 'All Incidents', 'Classification Review', 'Transfer Requests', 'Collaboration Requests', 'Manage Technicians', 'Manage Users', 'Knowledge Base', 'IT Services', 'Incident Categories', 'Urgency & Impact Rules', 'SLA Policies', 'Assignment Strategies', 'Escalations', 'Reports & Analytics', 'Audit Logs', 'Notifications', 'Settings'];
 const person = (id) => users.find((user) => user.id === id)?.name || 'Unassigned';
+pages.splice(pages.indexOf('IT Services'), 0, 'Manage IT Problem Templates');
 const incidentById = (id) => demoIncidents.find((incident) => incident.id === id);
 const technicianById = (id) => technicians.find((technician) => technician.id === id);
 const dateText = (value) => value?.replace('T', ' ') || 'Not recorded';
@@ -334,7 +336,7 @@ function Technicians({ open, preview, navigate }) {
       return <div className="dashboard-summary-card" key={technician.id}><h3>{technician.name}</h3><p className="admin-workload-total">{workload.total} / {technician.workloadLimit}</p><progress aria-label={`${technician.name} demo workload`} max={technician.workloadLimit} value={workload.total} /><span>{workload.activePrimary} primary · {workload.activeCollaboration} collaborating · {readableLabel(workloadLevel(technician, workload))}</span></div>;
     })}</section>
     {technicians.filter((technician) => technicianWorkload(technician.id).total >= technician.workloadLimit).map((technician) => <p className="admin-warning" key={technician.id}>Technician {technician.id} has a high workload ({technicianWorkload(technician.id).total}/{technician.workloadLimit} illustrative capacity). Consider reviewing incident assignments.</p>)}
-    <div className="admin-actions"><button className="incident-view" onClick={() => navigate('All Incidents')}>Review All Incidents</button><button className="incident-view" onClick={() => navigate('Assignment Requests')}>Review Transfer Requests</button></div>
+    <div className="admin-actions"><button className="incident-view" onClick={() => navigate('All Incidents')}>Review All Incidents</button><button className="incident-view" onClick={() => navigate('Transfer Requests')}>Review Transfer Requests</button></div>
   </>;
 }
 
@@ -501,7 +503,7 @@ function TechnicianDetails({ technician, open, setAction, navigate }) {
     <div className="admin-actions">
       <button className="incident-view" onClick={() => setAction({ title: 'Edit Technician Skills', subject: technician.id, fields: [skillsField(technician.skills)], outcome: 'Skill selection preview only. The shared technician profile and incident assignments remain unchanged.' })}>Edit Technician Skills</button>
       <button className="incident-view" onClick={() => setAction({ title: 'Update Availability', subject: technician.id, fields: [selectField('availability', 'Availability', optionsFor(['AVAILABLE', 'BUSY', 'UNAVAILABLE']), technician.availability)], outcome: 'Availability preview only. No live availability or assignment has changed.' })}>Update Availability</button>
-      <button className="incident-view" onClick={() => navigate('Assignment Requests')}>Review Transfer Requests</button>
+      <button className="incident-view" onClick={() => navigate('Transfer Requests')}>Review Transfer Requests</button>
       <button className="incident-view" disabled={!workload.primary.length} onClick={() => open('incident', workload.primary[0].id)}>Reassign Incident — review first assignment</button>
     </div>
     <IncidentList title="View assigned incidents" records={workload.primary} open={open} />
@@ -510,7 +512,7 @@ function TechnicianDetails({ technician, open, setAction, navigate }) {
   </>;
 }
 
-export default function AdminDashboard({ sessionUser, sessionNotice }) {
+export default function AdminDashboard({ sessionUser, sessionNotice, onLogout, signingOut = false }) {
   const [page, setPage] = useState('Dashboard');
   const [readIds, setReadIds] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(() => window.matchMedia('(min-width: 701px)').matches);
@@ -542,12 +544,15 @@ export default function AdminDashboard({ sessionUser, sessionNotice }) {
   let content;
   switch (page) {
     case 'All Incidents': content = <AllIncidents open={open} />; break;
-    case 'Assignment Requests': content = <Requests key="transfers" type="transfer" open={open} />; break;
+    case 'Classification Review': content = <AdminManagement page="Classification Review" />; break;
+    case 'Transfer Requests': content = <Requests key="transfers" type="transfer" open={open} />; break;
     case 'Collaboration Requests': content = <Requests key="collaborations" type="collaboration" open={open} />; break;
     case 'Manage Technicians': content = <Technicians open={open} preview={preview} navigate={navigate} />; break;
     case 'Manage Users': content = <Users open={open} preview={preview} />; break;
+    case 'Knowledge Base': content = sessionUser ? <AdminKnowledgeBase /> : <section className="report-form"><h2>Knowledge Base</h2><p>Sign in as an administrator to browse sanitized historical resolutions.</p></section>; break;
     case 'IT Services': content = <Services preview={preview} />; break;
     case 'Incident Categories': content = <Categories preview={preview} />; break;
+    case 'Urgency & Impact Rules': content = <AdminManagement page="Urgency & Impact Rules" />; break;
     case 'Assignment Strategies': content = <StrategyConfiguration />; break;
     case 'SLA Policies': content = <SlaPolicies preview={preview} open={open} />; break;
     case 'Escalations': content = <Escalations open={open} preview={preview} />; break;
@@ -558,12 +563,17 @@ export default function AdminDashboard({ sessionUser, sessionNotice }) {
     default: content = <DashboardHome open={open} navigate={navigate} />;
   }
 
-  const managementPages = ['Manage Users', 'IT Services', 'Incident Categories', 'SLA Policies', 'Escalations', 'Reports & Analytics', 'Audit Logs'];
-  if (sessionUser && managementPages.includes(page)) content = <AdminManagement key={page} page={page} />;
-  if (sessionUser && page === 'Settings') content = <section className="report-form"><h2>System configuration</h2><p>Manage persisted priority and assignment strategies and SLA targets using their respective pages.</p><button className="incident-view" onClick={() => navigate('Assignment Strategies')}>Open Strategies</button></section>;
+  const managementPages = ['Manage Users', 'IT Services', 'Incident Categories', 'Classification Review', 'Urgency & Impact Rules', 'SLA Policies', 'Escalations', 'Reports & Analytics', 'Audit Logs'];
+  if (sessionUser && (managementPages.includes(page) || page === 'Manage IT Problem Templates')) content = <AdminManagement key={page} page={page} />;
+  if (sessionUser && page === 'Settings') content = <section className="report-form"><h2>System configuration</h2><p>Manage persisted priority and assignment strategies and SLA targets using their respective pages.</p><button className="incident-view" onClick={() => navigate('Assignment Strategies')}>Open Strategies</button>
+    <section className="student-detail-section" aria-labelledby="admin-account-title"><h3 id="admin-account-title">Your account</h3>
+      <dl className="incident-details"><div><dt>Name</dt><dd>{sessionUser.name}</dd></div><div><dt>Institutional email</dt><dd>{sessionUser.email}</dd></div></dl>
+      <div className="report-actions"><button className="report-clear" type="button" disabled={signingOut} onClick={onLogout}>{signingOut ? 'Signing out…' : 'Sign Out'}</button></div>
+    </section></section>;
   if (sessionUser && page === 'Notifications') content = <Notifications live role="ADMIN" />;
+  if (sessionUser && page === 'Knowledge Base') content = <AdminKnowledgeBase />;
   if (sessionUser && ['Dashboard', 'All Incidents'].includes(page)) content = <LiveIncidents role="ADMIN" />;
-  const assignmentPages = { 'Assignment Requests': 'transfer', 'Collaboration Requests': 'collaboration', 'Manage Technicians': 'workload', 'Assignment Strategies': 'strategy' };
+  const assignmentPages = { 'Transfer Requests': 'transfer', 'Collaboration Requests': 'collaboration', 'Manage Technicians': 'workload', 'Assignment Strategies': 'strategy' };
   if (sessionUser && assignmentPages[page]) content = <AssignmentManagement key={page} mode={assignmentPages[page]} role="ADMIN" userId={sessionUser.id} />;
 
   const selectedUser = selection?.type === 'user' ? users.find((user) => user.id === selection.id) : null;

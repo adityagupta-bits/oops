@@ -28,6 +28,10 @@ public class Technician extends User {
     public int getMaxWorkload() { return maxWorkload; }
     public boolean isAvailable() { return availability == Availability.AVAILABLE; }
     public void setAvailable(boolean available) { availability = available ? Availability.AVAILABLE : Availability.UNAVAILABLE; }
+    public void setAvailability(Availability availability) {
+        if (availability == null) throw new IllegalArgumentException("Availability cannot be null.");
+        this.availability = availability;
+    }
     public boolean canReceive(long workload) { return isEnabled() && isAvailable() && workload < maxWorkload; }
     public void configureAssignment(Set<TechnicianSkill> skills, Availability availability, int maxWorkload) {
         if (skills == null || skills.isEmpty() || skills.stream().anyMatch(java.util.Objects::isNull) || availability == null || maxWorkload < 1 || maxWorkload > 100) throw new IllegalArgumentException("Provide skills, availability and a capacity of 1–100.");

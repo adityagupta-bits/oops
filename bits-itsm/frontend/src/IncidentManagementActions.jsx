@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import TechnicianOperations, { operationLabels } from './pages/TechnicianOperations.jsx';
 import { apiRequest } from './api.js';
+import SuggestedSolutions from './SuggestedSolutions.jsx';
 
 export default function IncidentManagementActions({ incident, role, options, onAction }) {
   const [action, setAction] = useState(null);
@@ -39,6 +40,7 @@ export default function IncidentManagementActions({ incident, role, options, onA
     finally { setBusy(false); }
   }
   return <>
+    {role === 'TECHNICIAN' && ['ASSIGNED', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(incident.status) && <SuggestedSolutions incidentId={incident.id} />}
     {role === 'ADMIN' && <section className="student-detail-section"><h3>Related incident suggestions</h3><p>Rule-based text similarity; incidents are not merged automatically.</p>{related.length ? <ul>{related.map(item => <li key={item.incidentId}>Incident {item.incidentId}: {item.title} ({Math.round(item.similarity * 100)}% similar)</li>)}</ul> : <p>No related incidents found.</p>}</section>}
     {role === 'ADMIN' && (assignable || ['NEW', 'VERIFIED'].includes(incident.status)) && <form className="report-form" onSubmit={submit}>
       {incident.status === 'NEW' && incident.categorySuggestion && <p>Suggested category: <strong>{incident.categorySuggestion.category}</strong>. {incident.categorySuggestion.explanation}</p>}

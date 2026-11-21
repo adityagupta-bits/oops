@@ -105,4 +105,51 @@ class PostgresAuthenticationTests {
             mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
         }
     }
+
+    @Test
+    void technicianAvailabilityEndpointsEnforceSecurityAndPersistStatus() throws Exception {
+        var json = JsonMapper.builder().build();
+
+        // 1. Student login - should be forbidden
+        var studentLogin = mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("email", "student01@hyderabad.bits-pilani.ac.in", "password", password))))
+                .andExpect(status().isOk()).andReturn();
+        var studentSession = (MockHttpSession) studentLogin.getRequest().getSession(false);
+        mvc.perform(get("/api/technician/availability").session(studentSession)).andExpect(status().isForbidden());
+        mvc.perform(put("/api/technician/availability").with(csrf()).session(studentSession)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("availability", "BUSY"))))
+                .andExpect(status().isForbidden());
+
+        // 2. Unauthenticated - should be unauthorized
+        mvc.perform(get("/api/technician/availability")).andExpect(status().isUnauthorized());
+
+        // 3. Technician login - can read and update
+        var techLogin = mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("email", "technician01@hyderabad.bits-pilani.ac.in", "password", password))))
+                .andExpect(status().isOk()).andReturn();
+        var techSession = (MockHttpSession) techLogin.getRequest().getSession(false);
+
+        mvc.perform(get("/api/technician/availability").session(techSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availability").isString());
+
+        // Update to BUSY
+        mvc.perform(put("/api/technician/availability").with(csrf()).session(techSession)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("availability", "BUSY"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availability").value("BUSY"));
+
+        // Verify in DB
+        var techUser = (Technician) users.findByEmail("technician01@hyderabad.bits-pilani.ac.in").orElseThrow();
+        assertEquals(Technician.Availability.BUSY, techUser.getAvailability());
+
+        // Update back to AVAILABLE
+        mvc.perform(put("/api/technician/availability").with(csrf()).session(techSession)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("availability", "AVAILABLE"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availability").value("AVAILABLE"));
+
+        techUser = (Technician) users.findByEmail("technician01@hyderabad.bits-pilani.ac.in").orElseThrow();
+        assertEquals(Technician.Availability.AVAILABLE, techUser.getAvailability());
+    }
 }

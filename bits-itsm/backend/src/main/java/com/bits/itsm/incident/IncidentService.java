@@ -98,14 +98,15 @@ public class IncidentService {
     public View create(Create request, String email) {
         User user = actor(email); role(user, Role.STUDENT);
         Incident incident = new Incident(request.title(), request.description(), (Student) user,
-                request.category(), request.affectedService(), request.impact(), request.urgency());
+                Incident.Category.OTHER, null, null, null);
         incident.record(user, "CREATED", "Incident reported.", STUDENT_VISIBLE);
         incidents.saveAndFlush(incident);
         events.publish(incident.getId(), user.getId(), "CREATED", null, "NEW", "Incident reported.");
 
         // Automatic backend classification
         classificationService.processSubmission(incident, user);
-        incidents.saveAndFlush(incident);
+        // Already managed: flush the appended history without merging persist-only children.
+        incidents.flush();
 
         if (incident.isAutoClassified()) {
             events.publish(incident.getId(), user.getId(), "PRIORITY_CHANGED", "PENDING", incident.getPriority().name(),

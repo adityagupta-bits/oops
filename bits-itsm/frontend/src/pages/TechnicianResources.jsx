@@ -78,6 +78,6 @@ export function SavedKnowledge() {
   return <><h2>Verified resolutions</h2><p>Previous resolutions confirmed by their reporters.</p>
     <div className="report-field"><label htmlFor="knowledge-search">Search title, category or resolution</label><input id="knowledge-search" value={query} onChange={event => setQuery(event.target.value)} /></div>
     <button className="report-clear" disabled={loading} onClick={load}>Refresh</button>
-    {error && <p role="alert">{error}</p>}{loading ? <p role="status">Loading resolutions?</p> : filtered.length ? filtered.map(item => <section className="report-form" key={item.incidentId}><h3>{item.title}</h3><p>Incident {item.incidentId} ? {readableLabel(item.category)} ? {item.service}</p><p>{item.summary}</p><p>{item.steps}</p></section>) : <p>No verified resolutions match your search.</p>}
+    {error && <p role="alert">{error}</p>}{loading ? <p role="status">Loading resolutions…</p> : filtered.length ? filtered.map(item => <section className="report-form" key={item.incidentId}><h3>{item.title}</h3><p>Incident {item.incidentId} · {readableLabel(item.category)} · {readableLabel(item.service)}</p><p>{item.summary}</p><p>{item.steps}</p></section>) : <p>No verified resolutions match your search.</p>}
   </>;
 }

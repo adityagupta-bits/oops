@@ -6,6 +6,7 @@ import Button27 from '../components/ui/button-27.jsx';
 import TechnicianOperations, { operationLabels } from './TechnicianOperations.jsx';
 import { KnowledgeBase, NotificationCenter, SavedKnowledge } from './TechnicianResources.jsx';
 import { incidentStatuses, readableLabel } from '../MyIncidents.jsx';
+import { apiRequest, apiSend } from '../api.js';
 import { demoIncidents, technicians, users, slaPolicies, auditLogs, investigationNotes, studentResponses, supportRequests, transferRequests, collaborationRequests, technicianNotifications, technicianWorkload, isActive } from '../demoData.js';
 
 const priorities = { P1: 'Critical', P2: 'High', P3: 'Medium', P4: 'Low' };
@@ -347,6 +348,49 @@ export default function TechnicianDashboard({ incidents = demoIncidents, session
   const selected = teamIncidents.find((incident) => incident.id === selectedId);
   const workload = technicianWorkload(technicianId, incidents);
   const accessibleIds = teamIncidents.map((incident) => incident.id);
+  const [availability, setAvailability] = useState(() => technician?.availability || 'AVAILABLE');
+  const [availabilityBusy, setAvailabilityBusy] = useState(false);
+  const [availabilityFeedback, setAvailabilityFeedback] = useState('');
+  const [availabilityError, setAvailabilityError] = useState(false);
+
+  useEffect(() => {
+    if (!sessionUser) {
+      setAvailability(technician?.availability || 'AVAILABLE');
+      return;
+    }
+    let active = true;
+    apiRequest('technician/availability')
+      .then((data) => {
+        if (active && data?.availability) setAvailability(data.availability);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [sessionUser, technicianId]);
+
+  async function handleAvailabilityChange(event) {
+    const nextStatus = event.target.value;
+    setAvailability(nextStatus);
+    setAvailabilityFeedback('');
+    setAvailabilityError(false);
+    if (!sessionUser) {
+      setAvailabilityFeedback('Availability updated (demo preview).');
+      setTimeout(() => setAvailabilityFeedback(''), 3000);
+      return;
+    }
+    setAvailabilityBusy(true);
+    try {
+      const res = await apiSend('technician/availability', { availability: nextStatus }, 'PUT');
+      setAvailability(res.availability || nextStatus);
+      setAvailabilityFeedback('Availability saved successfully.');
+      setAvailabilityError(false);
+    } catch (err) {
+      setAvailabilityFeedback(err.message || 'Failed to update availability.');
+      setAvailabilityError(true);
+    } finally {
+      setAvailabilityBusy(false);
+      setTimeout(() => setAvailabilityFeedback(''), 4000);
+    }
+  }
 
   useEffect(() => { heading.current?.focus(); }, [page, selectedId]);
 
@@ -362,7 +406,10 @@ export default function TechnicianDashboard({ incidents = demoIncidents, session
     setSelectedId(id);
   }
   function changeTechnician(event) {
-    setTechnicianId(event.target.value);
+    const nextId = event.target.value;
+    setTechnicianId(nextId);
+    const nextTech = technicians.find((person) => person.id === nextId);
+    if (nextTech) setAvailability(nextTech.availability || 'AVAILABLE');
     setFilters(emptyFilters);
     navigate('dashboard');
   }
@@ -402,7 +449,32 @@ export default function TechnicianDashboard({ incidents = demoIncidents, session
     <div className="dashboard-workspace">
       <header className="dashboard-topbar">
         <div className="dashboard-heading"><Button27 isOpen={isMenuOpen} onToggle={() => setIsMenuOpen(!isMenuOpen)} controls="technician-sidebar" /><h1 ref={heading} tabIndex={-1}>BITSolve · {page === 'details' ? 'Incident Details' : page === 'dashboard' ? 'Technician Dashboard' : pages[page]}</h1></div>
-        <div className="dashboard-profile"><span className="dashboard-avatar" aria-hidden="true">{(sessionUser || technician).name.split(' ').map((part) => part[0]).join('')}</span><div><strong>{(sessionUser || technician).name}</strong><span>{sessionUser ? 'Technician' : 'Technician · Demo'}</span></div></div>
+        <div className="dashboard-user-area">
+          <div className="technician-availability-control">
+            <label htmlFor="tech-availability" className="availability-label">Availability:</label>
+            <select
+              id="tech-availability"
+              className={`availability-select status-${(availability || 'available').toLowerCase()}`}
+              value={availability}
+              onChange={handleAvailabilityChange}
+              disabled={availabilityBusy}
+              aria-label="Technician Availability Status"
+            >
+              <option value="AVAILABLE">AVAILABLE</option>
+              <option value="BUSY">BUSY</option>
+              <option value="UNAVAILABLE">UNAVAILABLE</option>
+            </select>
+            {availabilityFeedback && (
+              <span
+                className={`availability-feedback ${availabilityError ? 'feedback-error' : 'feedback-success'}`}
+                role="status"
+              >
+                {availabilityFeedback}
+              </span>
+            )}
+          </div>
+          <div className="dashboard-profile"><span className="dashboard-avatar" aria-hidden="true">{(sessionUser || technician).name.split(' ').map((part) => part[0]).join('')}</span><div><strong>{(sessionUser || technician).name}</strong><span>{sessionUser ? 'Technician' : 'Technician · Demo'}</span></div></div>
+        </div>
       </header>
       <main className="dashboard-content">
         {sessionNotice || <div className="dashboard-preview-note"><p><strong>Development-only Technician preview</strong> · Fictional records. This preview does not authenticate an account or save changes.</p><div className="preview-links"><a href="?preview=student">Student preview</a><a href="?preview=admin">Administrator preview</a><a href="/">Back to login</a></div></div>}

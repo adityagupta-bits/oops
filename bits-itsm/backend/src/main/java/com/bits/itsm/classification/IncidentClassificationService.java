@@ -139,7 +139,7 @@ public class IncidentClassificationService {
 
     public Level determineUrgency(String text, ClassificationSettings settings) {
         if (text == null || text.isBlank()) {
-            return settings.getDefaultUrgency();
+            return null;
         }
         String normalized = text.toLowerCase(Locale.ROOT);
         int highMatches = countMatches(normalized, settings.getHighUrgencyKeywords());
@@ -151,12 +151,12 @@ public class IncidentClassificationService {
         if (lowMatches > 0 && lowMatches > highMatches) {
             return Level.LOW;
         }
-        return settings.getDefaultUrgency();
+        return null;
     }
 
     public Level determineImpact(String text, ClassificationSettings settings) {
         if (text == null || text.isBlank()) {
-            return settings.getDefaultImpact();
+            return null;
         }
         String normalized = text.toLowerCase(Locale.ROOT);
         int highMatches = countMatches(normalized, settings.getHighImpactKeywords());
@@ -168,7 +168,7 @@ public class IncidentClassificationService {
         if (mediumMatches > 0) {
             return Level.MEDIUM;
         }
-        return settings.getDefaultImpact();
+        return null;
     }
 
     private int countMatches(String text, String commaKeywords) {
@@ -216,9 +216,6 @@ public class IncidentClassificationService {
         DetectionResult serviceDetection = detectService(fullText);
 
         ItService detectedService = serviceDetection.service();
-        if (detectedService == null && !serviceDetection.ambiguous() && incident.getAffectedService() != null) {
-            detectedService = incident.getAffectedService();
-        }
 
         Level urgency = determineUrgency(fullText, settings);
         Level impact = determineImpact(fullText, settings);
@@ -235,12 +232,13 @@ public class IncidentClassificationService {
         }
         boolean criticalityConfigured = entry != null && entry.getCriticality() != null;
 
-        if (!serviceIdentified || !criticalityConfigured) {
+        if (!serviceIdentified || !criticalityConfigured || urgency == null || impact == null) {
             String reason = !serviceIdentified
                     ? (serviceDetection.ambiguous()
                         ? "Ambiguous service keywords match multiple IT services. Administrator review required."
                         : "No matching IT service could be detected with certainty from problem description. Administrator review required.")
-                    : "Detected service (" + detectedService.getLabel() + ") has no business criticality configured. Administrator review required.";
+                    : !criticalityConfigured ? "Detected service (" + detectedService.getLabel() + ") has no business criticality configured. Administrator review required."
+                    : "Insufficient evidence to determine impact or urgency. Administrator review required.";
 
             incident.flagForClassificationReview(reason, category, detectedService, urgency, impact);
             audit.save(new AuditRecord("AUD-" + UUID.randomUUID(), Instant.now(), null, incident.getId(),

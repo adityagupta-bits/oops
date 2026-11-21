@@ -11,7 +11,7 @@ public abstract class AssignmentRequest {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @ManyToOne(fetch = FetchType.LAZY, optional = false) private Incident incident;
     @ManyToOne(fetch = FetchType.LAZY, optional = false) private Technician primaryTechnician;
-    @ManyToOne(fetch = FetchType.LAZY, optional = false) private Technician proposedTechnician;
+    @ManyToOne(fetch = FetchType.LAZY) private Technician proposedTechnician;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private Status status = Status.PENDING;
     @Column(nullable = false) private Instant requestedAt = Instant.now();
     @ManyToOne(fetch = FetchType.LAZY) private User reviewedBy;

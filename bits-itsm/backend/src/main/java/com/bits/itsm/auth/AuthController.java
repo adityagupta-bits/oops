@@ -100,7 +100,7 @@ public class AuthController {
                 UsernamePasswordAuthenticationToken.unauthenticated(email, credentials.password()));
         Account account = account(authentication);
         if (credentials.role() != null && credentials.role() != account.role()) {
-            throw new BadCredentialsException("Use the correct role login.");
+            throw new LoginRoleException();
         }
         sessions.onAuthentication(authentication, request, response);
         var context = SecurityContextHolder.createEmptyContext();
@@ -125,8 +125,22 @@ public class AuthController {
         return ResponseEntity.status(401).body(Map.of("message", "Invalid email or password."));
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
-            IllegalArgumentException.class})
+    // Only report a role mismatch after the password has been verified.
+    private static class LoginRoleException extends AuthenticationException {
+        LoginRoleException() { super("Choose the login option matching your account role."); }
+    }
+
+    @ExceptionHandler(LoginRoleException.class)
+    ResponseEntity<Map<String, String>> wrongLoginRole() {
+        return ResponseEntity.status(401).body(Map.of("message", "Your credentials are valid, but this is the wrong login option. Select Student, Technician or Administrator to match your account."));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<Map<String, String>> invalidInput(IllegalArgumentException error) {
+        return ResponseEntity.badRequest().body(Map.of("message", error.getMessage()));
+    }
+
+    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
     ResponseEntity<Map<String, String>> invalidRequest() {
         return ResponseEntity.badRequest().body(Map.of("message",
                 "Enter a valid institutional email without surrounding whitespace and a password of at most 72 bytes."));

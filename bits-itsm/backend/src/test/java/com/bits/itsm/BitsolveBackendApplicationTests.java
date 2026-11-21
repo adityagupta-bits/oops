@@ -75,6 +75,17 @@ class BitsolveBackendApplicationTests {
                 .andExpect(content().json("{\"message\":\"BITSolve backend is running\"}"));
     }
 
+    @Test
+    void loginExplainsInvalidEmailAndWrongRoleWithoutCreatingSession() throws Exception {
+        mockMvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(credentials("student@example.com", password)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("Use a valid BITS Hyderabad email without surrounding whitespace."));
+        var result = mockMvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("email", student.getEmail(), "password", password, "role", "ADMIN"))))
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("wrong login option"))).andReturn();
+        assertNull(result.getRequest().getSession().getAttribute("SPRING_SECURITY_CONTEXT"));
+    }
+
     @ParameterizedTest
     @CsvSource({"student01,STUDENT", "technician01,TECHNICIAN", "admin01,ADMIN"})
     void authenticatesAllRolesAndRestoresSession(String localPart, String role) throws Exception {

@@ -8,12 +8,18 @@ export function onSessionExpired(callback) {
 
 export async function apiRequest(path, options = {}) {
   let response;
+  let data;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    response = await fetch(`/api/${path}`, { ...options, credentials: 'include' });
+    response = await fetch(`/api/${path}`, { ...options, credentials: 'include', signal: options.signal || controller.signal });
+    data = await response.json().catch(() => null);
   } catch {
+    if (controller.signal.aborted) throw new Error(options.method && options.method !== 'GET' ? 'The server took too long to respond. The save may have completed. Check the saved records before submitting again.' : 'The server took too long to respond. Please try again.');
     throw new Error('Unable to connect to the BITSolve server.');
+  } finally {
+    clearTimeout(timer);
   }
-  const data = await response.json().catch(() => null);
   if (response.status === 401 && path !== 'auth/login' && path !== 'auth/me') {
     sessionEvents.dispatchEvent(new Event('expired'));
   }

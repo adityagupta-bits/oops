@@ -20,6 +20,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import com.bits.itsm.knowledge.ResolutionRecommendationService;
+import com.bits.itsm.knowledge.ResolutionRecommendationService.KnowledgeEntry;
+import com.bits.itsm.knowledge.ResolutionRecommendationService.Suggestion;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -41,18 +45,18 @@ public class ServicesController {
     private final DuplicateDetector duplicates;
     private final IncidentLookup lookup;
     private final UserRepository users;
-    private final com.bits.itsm.incident.IncidentRepository incidents;
+    private final ResolutionRecommendationService recommendations;
 
     public ServicesController(InAppChannel inApp, AuditLogger audit, SlaMonitor slaMonitor,
                               EscalationService escalation, DuplicateDetector duplicates,
-                              IncidentLookup lookup, UserRepository users, com.bits.itsm.incident.IncidentRepository incidents) {
+                              IncidentLookup lookup, UserRepository users, ResolutionRecommendationService recommendations) {
         this.inApp = inApp;
         this.audit = audit;
         this.slaMonitor = slaMonitor;
         this.escalation = escalation;
         this.duplicates = duplicates;
         this.lookup = lookup;
-        this.users = users; this.incidents = incidents;
+        this.users = users; this.recommendations = recommendations;
     }
 
     private Long currentUserId(Authentication auth) {
@@ -60,12 +64,18 @@ public class ServicesController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sign in with an enabled account."));
     }
 
-    public record Knowledge(Long incidentId, String title, String category, String service, String summary, String steps) { }
-    @GetMapping("/technician/knowledge") @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<Knowledge> knowledge() {
-        return incidents.findAllByOrderByCreatedAtDesc().stream()
-                .filter(i -> i.getStatus() == com.bits.itsm.incident.IncidentStatus.VERIFIED || i.getStatus() == com.bits.itsm.incident.IncidentStatus.CLOSED)
-                .map(i -> new Knowledge(i.getId(), i.getTitle(), i.getCategory().name(), i.getAffectedService().getLabel(), i.getResolutionSummary(), i.getResolutionSteps())).toList();
+    @GetMapping("/technician/knowledge")
+    public List<KnowledgeEntry> knowledge(Authentication auth) { return recommendations.search(auth.getName(), null, null, null); }
+
+    @GetMapping("/admin/knowledge")
+    public List<KnowledgeEntry> adminKnowledge(Authentication auth, @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category, @RequestParam(required = false) String service) {
+        return recommendations.search(auth.getName(), search, category, service);
+    }
+
+    @GetMapping("/incidents/{incidentId}/suggested-solutions")
+    public List<Suggestion> suggestedSolutions(@PathVariable Long incidentId, Authentication auth) {
+        return recommendations.suggest(incidentId, auth.getName());
     }
 
     @GetMapping("/notifications")

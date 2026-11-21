@@ -74,6 +74,19 @@ public class AssignmentService implements ApplicationRunner {
         User user = all ? actor(email, Role.ADMIN) : actor(email, Role.TECHNICIAN);
         return workloads.all().stream().filter(w -> all || w.id().equals(user.getId())).toList();
     }
+    public Technician.Availability getAvailability(String email) {
+        User user = actor(email, Role.TECHNICIAN);
+        if (!(user instanceof Technician technician)) throw new IllegalArgumentException("Authenticated user is not a technician.");
+        return technician.getAvailability();
+    }
+    @Transactional public WorkloadService.Workload updateAvailability(Technician.Availability availability, String email) {
+        User user = actor(email, Role.TECHNICIAN);
+        if (!(user instanceof Technician technician)) throw new IllegalArgumentException("Authenticated user is not a technician.");
+        if (availability == null) throw new IllegalArgumentException("Availability status is required.");
+        technician.setAvailability(availability);
+        users.flush();
+        return workloads.all().stream().filter(w -> w.id().equals(technician.getId())).findFirst().orElseThrow();
+    }
     @Transactional public WorkloadService.Workload profile(Long id, Profile request, String email) {
         actor(email, Role.ADMIN); settings.lock();
         User user = users.findById(id).orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Technician not found."));
@@ -106,11 +119,13 @@ public class AssignmentService implements ApplicationRunner {
     @Transactional public RequestView transfer(Long id, Transfer request, String email) {
         User user = actor(email, Role.TECHNICIAN); Incident incident = locked(id); primary(incident, user); incident.requireAssignableTeam();
         if (transfers.existsByIncidentIdAndStatus(id, PENDING)) throw new IllegalStateException("A transfer request is already pending for this incident.");
-        Technician target = eligible(incident, request.technicianId(), incident.requiredSkill());
+        Technician target = request.technicianId() == null ? null : eligible(incident, request.technicianId(), incident.requiredSkill());
         TransferRequest saved = transfers.save(new TransferRequest(incident, target, request.reason(), request.handoverNotes()));
-        incident.record(user, "TRANSFER_REQUESTED", "Transfer requested to " + target.getName() + ".", INTERNAL);
+        String destination = target == null ? "No destination suggested; administrator will select." : "Suggested destination: " + target.getName() + " (" + target.getId() + ").";
+        String requestAudit = "Previous technician: " + user.getName() + " (" + user.getId() + "). " + destination + " Reason: " + request.reason() + ". Explanation: " + request.handoverNotes();
+        incident.record(user, "TRANSFER_REQUESTED", requestAudit, INTERNAL);
         incidents.flush();
-        events.publishTo(id, user.getId(), "TRANSFER_REQUESTED", null, PENDING.name(), "A transfer request awaits administrator review.", Set.of(target.getId()));
+        events.publishTo(id, user.getId(), "TRANSFER_REQUESTED", user.getId().toString(), PENDING.name(), requestAudit, Set.of());
         return view(saved);
     }
     @Transactional public RequestView collaborate(Long id, Collaboration request, String email) {
@@ -143,25 +158,34 @@ public class AssignmentService implements ApplicationRunner {
             if (!incident.isPrimary(pending.getPrimaryTechnician().getId())) throw new IllegalStateException("Primary ownership changed; reject this stale request.");
             if (!pending.getPrimaryTechnician().isEnabled()) throw new IllegalStateException("Original primary account is disabled; use administrator reassignment.");
             TechnicianSkill required = collaboration ? ((CollaborationRequest) pending).getRequiredSkill() : incident.requiredSkill();
-            Technician target = eligible(incident, pending.getProposedTechnician().getId(), required);
-            if (collaboration) incident.addCollaborator(target, ((CollaborationRequest) pending).getResponsibility()); else incident.reassign(target);
+            Long destinationId = request.technicianId() != null ? request.technicianId() : pending.getProposedTechnician() == null ? null : pending.getProposedTechnician().getId();
+            if (!collaboration && destinationId == null) throw new IllegalArgumentException("Select an eligible destination technician before approval.");
+            Technician target = eligible(incident, destinationId, required);
+            if (collaboration) incident.addCollaborator(target, ((CollaborationRequest) pending).getResponsibility()); else { incident.reassign(target); ((TransferRequest) pending).assignTo(target); }
             if (collaboration) incident.record(user, "COLLABORATOR_ADDED", "Collaborator added: " + target.getName() + ".", INTERNAL);
-            else incident.record(user, "TECHNICIAN_CHANGED", "Primary technician changed to " + target.getName() + ".", STUDENT_VISIBLE);
+            else incident.record(user, "TECHNICIAN_CHANGED", "Primary technician changed from " + pending.getPrimaryTechnician().getName() + " to " + target.getName() + " after administrator approval.", STUDENT_VISIBLE);
         }
         pending.review(decision, user, request.notes());
-        incident.record(user, (collaboration ? "COLLABORATION_" : "TRANSFER_") + decision, request.notes(), INTERNAL);
+        String reviewAudit = collaboration ? request.notes() : decision == APPROVED
+                ? "Approved by " + user.getName() + ". Reason: " + ((TransferRequest) pending).getReason() + ". Explanation: " + ((TransferRequest) pending).getHandoverNotes() + ". Review: " + request.notes()
+                : "Rejected by " + user.getName() + ". Assignment remains with " + pending.getPrimaryTechnician().getName() + " (" + pending.getPrimaryTechnician().getId() + "). Request reason: " + ((TransferRequest) pending).getReason() + ". Explanation: " + ((TransferRequest) pending).getHandoverNotes() + ". Rejection reason: " + request.notes();
+        incident.record(user, (collaboration ? "COLLABORATION_" : "TRANSFER_") + decision, reviewAudit, INTERNAL);
         incidents.flush();
         if (!collaboration && decision == APPROVED) {
-            events.publish(incident.getId(), user.getId(), "TECHNICIAN_CHANGED", pending.getPrimaryTechnician().getId().toString(), pending.getProposedTechnician().getId().toString(), "Primary technician changed after transfer approval.");
+            TransferRequest transfer = (TransferRequest) pending;
+            events.publish(incident.getId(), user.getId(), "TECHNICIAN_CHANGED", pending.getPrimaryTechnician().getId().toString(), incident.getAssignedTechnician().getId().toString(), "Transfer approved by " + user.getName() + ". Reason: " + transfer.getReason() + ". Explanation: " + transfer.getHandoverNotes() + ". Review: " + request.notes());
         }
-        events.publishTo(incident.getId(), user.getId(), (collaboration ? "COLLABORATION_" : "TRANSFER_") + decision, PENDING.name(), decision.name(), "Team change request " + decision.name().toLowerCase() + ".", Set.of(pending.getPrimaryTechnician().getId(), pending.getProposedTechnician().getId()));
+        Set<Long> recipients = new HashSet<>(Set.of(pending.getPrimaryTechnician().getId()));
+        if (collaboration && pending.getProposedTechnician() != null) recipients.add(pending.getProposedTechnician().getId());
+        if (!collaboration && decision == APPROVED) recipients.add(incident.getAssignedTechnician().getId());
+        events.publishTo(incident.getId(), user.getId(), (collaboration ? "COLLABORATION_" : "TRANSFER_") + decision, PENDING.name(), decision.name(), reviewAudit, recipients);
         return view(pending);
     }
     private static Person person(User user) { return user == null ? null : new Person(user.getId(), user.getName()); }
     private RequestView view(AssignmentRequest r) {
         TransferRequest t = r instanceof TransferRequest transfer ? transfer : null;
         CollaborationRequest c = r instanceof CollaborationRequest collaboration ? collaboration : null;
-        return new RequestView(r.getId(), r.getIncident().getId(), r.getIncident().getTitle(), person(r.getPrimaryTechnician()), person(r.getProposedTechnician()), r.getStatus(),
+        return new RequestView(r.getId(), r.getIncident().getId(), r.getIncident().getTitle(), person(r.getPrimaryTechnician()), person(r.getProposedTechnician()), t != null ? person(t.getAssignedTechnician()) : null, r.getStatus(),
                 t != null ? t.getReason().name() : c.getReason(), t != null ? t.getHandoverNotes() : null, c != null ? c.getRequiredSkill() : null,
                 c != null ? c.getResponsibility() : null, r.getRequestedAt(), person(r.getReviewedBy()), r.getReviewedAt(), r.getReviewNotes());
     }

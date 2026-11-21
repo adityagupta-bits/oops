@@ -9,7 +9,7 @@ export const operationLabels = {
   escalate: 'Escalate Incident', resolution: 'Provide Resolution', resolve: 'Mark as Resolved',
 };
 
-const transferReasons = ['Excessive workload', 'Insufficient technical expertise', 'Technician unavailable', 'Incorrect initial assignment', 'Another technician better suited', 'Urgent redistribution', 'Other'];
+const transferReasons = ['DIFFERENT_SPECIALIZATION', 'EXCESSIVE_WORKLOAD', 'TECHNICIAN_UNAVAILABLE', 'SENIOR_ESCALATION', 'OTHER'];
 const escalationReasons = ['SLA Deadline Approaching', 'Critical Incident', 'Insufficient Resources', 'Technical Expertise Required', 'Technician Unavailable', 'Administrator Intervention Required', 'Other'];
 const informationTypes = ['Screenshot of error', 'Device information', 'Exact error message', 'Time problem occurred', 'Steps to reproduce issue', 'Other'];
 const lifecycleExplanations = {
@@ -19,11 +19,11 @@ const lifecycleExplanations = {
 };
 
 function operationFields(action, candidates, live = false) {
-  const receivingTechnician = { name: 'technicianId', label: action === 'transfer' ? 'Suggested Receiving Technician' : 'Suggested Collaborator', options: candidates.map((person) => [String(person.id), `${person.name} (${person.id})`]) };
+  const receivingTechnician = { name: 'technicianId', label: action === 'transfer' ? 'Suggested Destination Technician' : 'Suggested Collaborator', optional: action === 'transfer', options: candidates.map((person) => [String(person.id), `${person.name} (${person.id})`]) };
   switch (action) {
     case 'transfer': return [
-      { name: 'reason', label: 'Transfer Reason', options: live ? ['HIGH_WORKLOAD', 'LACK_OF_EXPERTISE', 'UNAVAILABLE', 'INCORRECT_ASSIGNMENT', 'BETTER_SUITED_TECHNICIAN', 'OTHER'] : transferReasons }, receivingTechnician,
-      { name: 'handover', label: 'Handover Notes' },
+      { name: 'reason', label: 'Transfer Reason', options: transferReasons }, receivingTechnician,
+      { name: 'handover', label: 'Additional Explanation' },
     ];
     case 'collaboration': return [
       { name: 'skill', label: 'Required Technical Skill', options: live ? ['NETWORK', 'HARDWARE', 'SOFTWARE', 'DATABASE', 'AUTHENTICATION', 'SECURITY', 'APPLICATION_SUPPORT', 'CLOUD', 'STORAGE'] : [...new Set(technicians.flatMap((person) => person.skills))].sort() },
@@ -98,7 +98,8 @@ export default function TechnicianOperations({ action, incident, technicianId, o
       else if (value && field.options && !field.options.some((option) => (Array.isArray(option) ? option[0] : option) === value)) nextErrors[field.name] = 'Choose a valid option.';
     });
     if (request && values.technicianId === incident.primaryTechnicianId) nextErrors.technicianId = 'Choose someone other than the primary technician.';
-    if (action === 'transfer' && values.technicianId === technicianId) nextErrors.technicianId = 'You cannot request a transfer to yourself.';
+    if (action === 'transfer' && values.technicianId && values.technicianId === technicianId) nextErrors.technicianId = 'You cannot suggest yourself as the destination.';
+    if (action === 'transfer' && values.handover?.trim().length < 10) nextErrors.handover = 'Please provide a meaningful explanation (at least 10 characters).';
     if (!onAction && action === 'collaboration' && incident.collaborators.some((member) => member.technicianId === values.technicianId)) nextErrors.technicianId = 'This technician is already a collaborator.';
     if (request && receiver?.availability === 'UNAVAILABLE') nextErrors.technicianId = 'This technician is unavailable. Choose another technician for this preview.';
     setErrors(nextErrors);
@@ -111,7 +112,7 @@ export default function TechnicianOperations({ action, incident, technicianId, o
     setBusy(true); setError('');
     try {
       const route = { acknowledge: 'acknowledge', start: 'start', note: 'notes', information: 'information', resolution: 'resolve', transfer: 'transfer-requests', collaboration: 'collaboration-requests' }[action];
-      const payload = action === 'transfer' ? { technicianId: Number(values.technicianId), reason: values.reason, handoverNotes: values.handover } : action === 'collaboration' ? { technicianId: Number(values.technicianId), requiredSkill: values.skill, reason: values.reason, responsibility: values.task } : action === 'note' ? { content: values.note, visibility: values.visibility } : action === 'information' ? { content: `${values.information}: ${values.message}` } : action === 'resolution' ? { summary: values.summary, steps: values.steps } : {};
+      const payload = action === 'transfer' ? { ...(values.technicianId ? { technicianId: Number(values.technicianId) } : {}), reason: values.reason, handoverNotes: values.handover } : action === 'collaboration' ? { technicianId: Number(values.technicianId), requiredSkill: values.skill, reason: values.reason, responsibility: values.task } : action === 'note' ? { content: values.note, visibility: values.visibility } : action === 'information' ? { content: `${values.information}: ${values.message}` } : action === 'resolution' ? { summary: values.summary, steps: values.steps } : {};
       const saved = await onAction(route, payload);
       if (request) setSavedRequest(saved); else onClose();
     } catch (error) { setError(error.message); }

@@ -43,7 +43,11 @@ class PostgresMigrationTests {
             flyway.migrate();
             flyway.validate();
             assertEquals(0, flyway.migrate().migrationsExecuted);
-            assertEquals(incident, jdbc.queryForMap("select * from incidents where id=900"));
+            var migratedIncident = jdbc.queryForMap("select * from incidents where id=900");
+            incident.forEach((column, value) -> assertEquals(value, migratedIncident.get(column), column));
+            assertEquals(false, migratedIncident.get("needs_classification_review"));
+            assertEquals(false, migratedIncident.get("auto_classified"));
+            assertNull(migratedIncident.get("classification_notes"));
             assertEquals(account, jdbc.queryForMap("select * from app_users where id=900"));
             assertEquals(1, jdbc.queryForObject("select count(*) from incident_history where incident_id=900", Integer.class));
             assertEquals("LOAD_BASED", jdbc.queryForObject("select strategy from assignment_settings where id=1", String.class));
@@ -54,7 +58,8 @@ class PostgresMigrationTests {
             assertEquals("HIGH", jdbc.queryForObject("select criticality from catalog_entries where code='CAMPUS_WIFI'", String.class));
             assertEquals("MEDIUM", jdbc.queryForObject("select criticality from catalog_entries where code='EMAIL'", String.class));
             assertEquals(155, jdbc.queryForObject("select resolution_minutes from sla_policies where priority='P2'", Integer.class));
-            assertEquals(7, jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class));
+            assertEquals(10, jdbc.queryForObject("select count(*) from flyway_schema_history where success", Integer.class));
+            assertEquals(20, jdbc.queryForObject("select count(*) from problem_templates", Integer.class));
             assertEquals(1, jdbc.queryForObject("select count(*) from classification_settings where id=1", Integer.class));
             assertNotNull(jdbc.queryForObject("select keywords from catalog_entries where code='CAMPUS_WIFI'", String.class));
             if (version.equals("1")) {

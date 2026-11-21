@@ -9,12 +9,15 @@ import jakarta.validation.constraints.*;
 public final class AssignmentData {
     private AssignmentData() { }
     public record Strategy(@NotNull AssignmentSettings.Mode strategy) { }
+    public record AvailabilityUpdate(@NotNull Technician.Availability availability) { }
     public record Profile(@NotEmpty Set<@NotNull TechnicianSkill> skills, @NotNull Technician.Availability availability, @Min(1) @Max(100) int maxWorkload) { }
-    public record Transfer(@NotNull @Positive Long technicianId, @NotNull TransferRequest.Reason reason, @NotBlank @Size(max = 2000) String handoverNotes) { }
+    public record Transfer(@Positive Long technicianId, @NotNull TransferRequest.Reason reason, @NotBlank @Size(min = 10, max = 2000) String handoverNotes) { }
     public record Collaboration(@NotNull @Positive Long technicianId, @NotNull TechnicianSkill requiredSkill,
             @NotBlank @Size(max = 2000) String reason, @NotBlank @Size(max = 2000) String responsibility) { }
-    public record Review(@NotBlank @Size(max = 2000) String notes) { }
-    public record RequestView(Long id, Long incidentId, String incidentTitle, Person primaryTechnician, Person proposedTechnician,
+    public record Review(@NotBlank @Size(max = 2000) String notes, @Positive Long technicianId) {
+        public Review(String notes) { this(notes, null); }
+    }
+    public record RequestView(Long id, Long incidentId, String incidentTitle, Person primaryTechnician, Person proposedTechnician, Person assignedTechnician,
             AssignmentRequest.Status status, String reason, String handoverNotes, TechnicianSkill requiredSkill, String responsibility,
             Instant requestedAt, Person reviewedBy, Instant reviewedAt, String reviewNotes) { }
 }

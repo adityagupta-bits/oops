@@ -50,9 +50,9 @@ function AuthenticatedApp() {
   const Dashboard = { STUDENT: StudentDashboard, TECHNICIAN: TechnicianDashboard, ADMIN: AdminDashboard }[user.role];
   const sessionNotice = <div className="dashboard-preview-note">
     <div><p><strong>Signed in as {user.name}</strong> · {user.email}</p>{message && <p role="alert">{message}</p>}</div>
-    {user.role !== 'STUDENT' && <button className="report-clear" type="button" disabled={signingOut} onClick={logout}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>}
+    {user.role === 'TECHNICIAN' && <button className="report-clear" type="button" disabled={signingOut} onClick={logout}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>}
   </div>;
-  return Dashboard ? <Dashboard sessionUser={user} sessionNotice={sessionNotice} {...(user.role === 'STUDENT' ? { onLogout: logout, signingOut } : {})} /> : <main>{sessionNotice}<p role="alert">Your account role is not supported.</p></main>;
+  return Dashboard ? <Dashboard sessionUser={user} sessionNotice={sessionNotice} onLogout={logout} signingOut={signingOut} /> : <main>{sessionNotice}<p role="alert">Your account role is not supported.</p></main>;
 }
 
 function LoginPage({ onLogin, initialMessage }) {

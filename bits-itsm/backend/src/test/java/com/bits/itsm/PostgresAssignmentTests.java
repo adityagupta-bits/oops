@@ -48,7 +48,7 @@ class PostgresAssignmentTests {
         post("admin01", "/api/incidents/" + id + "/classify", Map.of("category", category), 200); return id;
     }
     void assign(long id, String technician) throws Exception { post("admin01", "/api/incidents/" + id + "/assign", Map.of("technicianId", tech(technician)), 200); }
-    long transfer(long id, String owner, String target) throws Exception { return post(owner, "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId", tech(target), "reason", "HIGH_WORKLOAD", "handoverNotes", "Private transfer handover"), 200).get("id").asLong(); }
+    long transfer(long id, String owner, String target) throws Exception { return post(owner, "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId", tech(target), "reason", "EXCESSIVE_WORKLOAD", "handoverNotes", "Private transfer handover"), 200).get("id").asLong(); }
     long collaborate(long id, String owner, String target) throws Exception { return post(owner, "/api/incidents/" + id + "/collaboration-requests", Map.of("technicianId", tech(target), "requiredSkill", "DATABASE", "reason", "Private collaboration reason", "responsibility", "Private database investigation"), 200).get("id").asLong(); }
     @BeforeEach void prepare() {
         // This class requires an explicitly configured, disposable PostgreSQL database.
@@ -84,19 +84,35 @@ class PostgresAssignmentTests {
         post("technician01", "/api/incidents/" + id + "/start", Map.of(), 200);
         post("technician01", "/api/incidents/" + id + "/notes", Map.of("content","Preserved note","visibility","INTERNAL"), 200);
         var before = get("admin01", "/api/incidents/" + id, 200);
-        post("technician02", "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId", tech("technician04"), "reason", "OTHER", "handoverNotes", "No access"), 403);
-        post("technician01", "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId", tech("technician01"), "reason", "OTHER", "handoverNotes", "Self"), 409);
+        post("student01", "/api/incidents/" + id + "/transfer-requests", Map.of("reason", "OTHER", "handoverNotes", "Please transfer this incident to a specialist."), 403);
+        post("technician02", "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId", tech("technician04"), "reason", "OTHER", "handoverNotes", "No access to this incident"), 403);
+        post("technician01", "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId", tech("technician01"), "reason", "OTHER", "handoverNotes", "I suggest myself"), 409);
         long request = transfer(id,"technician01","technician02");
-        post("technician01", "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId", tech("technician04"), "reason", "OTHER", "handoverNotes", "Duplicate"), 409);
+        post("technician02", "/api/admin/transfer-requests/" + request + "/approve", Map.of("notes", "Technician cannot approve"), 403);
+        post("technician01", "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId", tech("technician04"), "reason", "OTHER", "handoverNotes", "Duplicate transfer request"), 409);
         post("admin01", "/api/admin/transfer-requests/" + request + "/approve", Map.of("notes","Approved"), 200);
         post("admin01", "/api/admin/transfer-requests/" + request + "/approve", Map.of("notes","Duplicate"), 409);
         get("technician01", "/api/incidents/" + id, 403);
         var after = get("technician02", "/api/incidents/" + id, 200);
+        assertEquals(tech("technician02"), get("admin01", "/api/admin/transfer-requests", 200).get(0).get("assignedTechnician").get("id").asLong());
         assertEquals(id, after.get("id").asLong()); assertEquals(before.get("status"),after.get("status"));
         assertEquals(before.get("createdAt"),after.get("createdAt")); assertEquals(before.get("acknowledgedAt"),after.get("acknowledgedAt")); assertEquals(before.get("notes"),after.get("notes"));
         assertTrue(after.toString().contains("TRANSFER_APPROVED"));
         assertEquals(1, jdbc.queryForObject("select count(*) from audit_events where incident_id = ? and action = 'TECHNICIAN_CHANGED'", Integer.class, id));
         assertFalse(get("student01", "/api/incidents/" + id, 200).toString().contains("Private transfer"));
+    }
+    @Test void destinationCanBeSelectedByAdminAndPriorityAndDeadlinesStayFixed() throws Exception {
+        long id = incident("NETWORK"); assign(id, "technician01");
+        var before = get("admin01", "/api/incidents/" + id, 200);
+        var request = post("technician01", "/api/incidents/" + id + "/transfer-requests", Map.of("reason", "DIFFERENT_SPECIALIZATION", "handoverNotes", "A senior specialist should investigate the repeated network failures."), 200);
+        assertEquals("PENDING", request.get("status").asText());
+        assertEquals(tech("technician01"), get("student01", "/api/incidents/" + id, 200).get("assignedTechnician").get("id").asLong());
+        post("admin01", "/api/admin/transfer-requests/" + request.get("id").asLong() + "/approve", Map.of("notes", "Approved after reviewing capacity", "technicianId", tech("technician02")), 200);
+        var after = get("technician02", "/api/incidents/" + id, 200);
+        assertEquals(tech("technician02"), after.get("assignedTechnician").get("id").asLong());
+        assertEquals(before.get("priority"), after.get("priority"));
+        assertEquals(before.get("responseDeadline"), after.get("responseDeadline"));
+        assertEquals(before.get("resolutionDeadline"), after.get("resolutionDeadline"));
     }
     @Test void rejectionCancellationAndStaleRequestDoNotChangeOwnership() throws Exception {
         long id = incident("NETWORK"); assign(id,"technician01"); long request = transfer(id,"technician01","technician02");
@@ -121,7 +137,7 @@ class PostgresAssignmentTests {
         assertEquals(tech("technician01"),detail.get("assignedTechnician").get("id").asLong()); assertFalse(detail.get("primaryOwner").asBoolean());
         post("technician03", "/api/incidents/" + id + "/notes", Map.of("content","Collaborator diagnosis","visibility","INTERNAL"),200);
         post("technician03", "/api/incidents/" + id + "/resolve", Map.of("summary","No","steps","No"),403);
-        post("technician03", "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId",tech("technician02"),"reason","OTHER","handoverNotes","No"),403);
+        post("technician03", "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId",tech("technician02"),"reason","OTHER","handoverNotes","Not assigned to this incident"),403);
         assertEquals(1,get("technician03","/api/technician/team-incidents",200).size());
         assertEquals(1,get("technician03","/api/technician/workload",200).get("activeCollaboration").asInt());
         assertEquals(1,get("technician01","/api/technician/workload",200).get("activePrimary").asInt());
