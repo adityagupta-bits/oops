@@ -7,7 +7,7 @@ import MyIncidents, { IncidentSummary, incidentStatuses, readableLabel } from '.
 //* some of the sample entries 
 import { demoIncidents as sampleIncidents, users, studentNotifications } from '../demoData.js';
 //* gives basic overview of present status of incidents 
-export default function StudentDashboard({ incidents: allIncidents = sampleIncidents, sessionUser, sessionNotice }) {
+export default function StudentDashboard({ incidents: allIncidents = sampleIncidents, sessionUser, sessionNotice, onLogout, signingOut = false }) {
   const [page, setPage] = useState('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(() => window.matchMedia('(min-width: 701px)').matches);
   const [studentId, setStudentId] = useState('S101');
@@ -101,6 +101,9 @@ export default function StudentDashboard({ incidents: allIncidents = sampleIncid
           </section>
           </>}
           </>}
+          {page === 'profile' && sessionUser && <div className="report-actions">
+            <button className="report-clear" type="button" disabled={signingOut} onClick={onLogout}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
+          </div>}
         </main>
 
         <footer className="dashboard-footer">BITSolve — BITS Hyderabad IT Support</footer>

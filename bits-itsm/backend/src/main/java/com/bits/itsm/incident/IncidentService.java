@@ -5,6 +5,7 @@ import java.util.Locale;
 import com.bits.itsm.user.*;
 import com.bits.itsm.incident.IncidentData.*;
 import com.bits.itsm.assignment.AssignmentSettingsRepository;
+import com.bits.itsm.classification.IncidentClassificationService;
 import static com.bits.itsm.incident.InvestigationNote.Visibility.*;
 import static com.bits.itsm.incident.InvestigationNote.Kind.*;
 import org.springframework.http.HttpStatus;
@@ -24,11 +25,21 @@ public class IncidentService {
     private final com.bits.itsm.priority.PriorityService priorities;
     private final com.bits.itsm.intelligence.CategorySuggester categories;
     private final com.bits.itsm.event.IncidentEventPublisher events;
-    public IncidentService(IncidentRepository incidents, UserRepository users, AssignmentSettingsRepository assignmentSettings, SlaPolicies slaPolicies, com.bits.itsm.priority.PriorityService priorities, com.bits.itsm.intelligence.CategorySuggester categories, com.bits.itsm.event.IncidentEventPublisher events, CatalogService catalog, com.bits.itsm.intelligence.DuplicateDetector duplicates) {
+    private final IncidentClassificationService classificationService;
+
+    public IncidentService(IncidentRepository incidents, UserRepository users,
+                           AssignmentSettingsRepository assignmentSettings, SlaPolicies slaPolicies,
+                           com.bits.itsm.priority.PriorityService priorities,
+                           com.bits.itsm.intelligence.CategorySuggester categories,
+                           com.bits.itsm.event.IncidentEventPublisher events,
+                           CatalogService catalog,
+                           com.bits.itsm.intelligence.DuplicateDetector duplicates,
+                           IncidentClassificationService classificationService) {
         this.incidents = incidents; this.users = users; this.assignmentSettings = assignmentSettings; this.slaPolicies = slaPolicies;
         this.priorities = priorities;
         this.categories = categories;
         this.events = events; this.catalog = catalog; this.duplicates = duplicates;
+        this.classificationService = classificationService;
     }
 
     private User actor(String email) {
@@ -86,19 +97,30 @@ public class IncidentService {
     @Transactional
     public View create(Create request, String email) {
         User user = actor(email); role(user, Role.STUDENT);
-        catalog.requireEnabled("CATEGORY", request.category().name());
-        catalog.requireEnabled("SERVICE", request.affectedService().name());
-        priorities.criticality(request.affectedService());
-        Incident incident = new Incident(request.title(), request.description(), (Student) user, request.category(), request.affectedService(), request.impact(), request.urgency());
+        Incident incident = new Incident(request.title(), request.description(), (Student) user,
+                request.category(), request.affectedService(), request.impact(), request.urgency());
         incident.record(user, "CREATED", "Incident reported.", STUDENT_VISIBLE);
         incidents.saveAndFlush(incident);
         events.publish(incident.getId(), user.getId(), "CREATED", null, "NEW", "Incident reported.");
+
+        // Automatic backend classification
+        classificationService.processSubmission(incident, user);
+        incidents.saveAndFlush(incident);
+
+        if (incident.isAutoClassified()) {
+            events.publish(incident.getId(), user.getId(), "PRIORITY_CHANGED", "PENDING", incident.getPriority().name(),
+                    "Automatically classified: " + incident.getPriority());
+        }
+
         duplicates.check(incident.getId());
         return view(incident, user);
     }
     @Transactional
     public View classify(Long id, Classification request, String email) {
         User user = actor(email); Incident incident = editable(id, user, Role.ADMIN);
+        if (incident.getAffectedService() == null) {
+            throw new IllegalStateException("Affected service is not yet determined. Use adminReclassify to provide service and severity.");
+        }
         Incident.Level criticality = priorities.criticality(incident.getAffectedService());
         incident.classify(request.category(), priorities.calculate(incident, criticality));
         incident.captureCriticality(criticality);
@@ -106,6 +128,17 @@ public class IncidentService {
         events.publish(id, user.getId(), "PRIORITY_CHANGED", "PENDING", incident.getPriority().name(), "Calculated using " + priorities.current().getStrategy() + "; criticality: " + criticality);
         incident.record(user, "PRIORITY_ASSIGNED", "Priority: " + incident.getPriority() + "; criticality: " + criticality, STUDENT_VISIBLE);
         return finish(incident, user, "CLASSIFIED", "Category confirmed: " + request.category());
+    }
+    @Transactional
+    public View adminReclassify(Long id, AdminCorrection request, String email) {
+        User user = actor(email); role(user, Role.ADMIN);
+        Incident incident = incidents.findForUpdate(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Incident not found."));
+        String previousPriority = incident.getPriority() != null ? incident.getPriority().name() : "PENDING";
+        classificationService.reclassify(incident, request.affectedService(), request.category(), request.impact(), request.urgency(), request.reason(), user);
+        incidents.saveAndFlush(incident);
+        events.publish(id, user.getId(), "PRIORITY_CHANGED", previousPriority, incident.getPriority().name(),
+                "Administrator updated classification: " + request.reason());
+        return view(incident, user);
     }
     @Transactional
     public View edit(Long id, Edit request, String email) {
@@ -195,11 +228,13 @@ public class IncidentService {
         var history = i.getHistory().stream().filter(h -> !student || h.getVisibility() == STUDENT_VISIBLE)
                 .map(h -> new HistoryView(h.getId(), person(h.getActor()), h.getAction(), h.getDescription(), h.getCreatedAt())).toList();
         var f = i.getFeedback();
+        String serviceLabel = i.getAffectedService() == null ? "Awaiting Classification" : i.getAffectedService().getLabel();
         return new View(i.getId(), i.getTitle(), i.getDescription(), person(i.getReporter()), i.getCategory(), i.getAffectedService(),
-                i.getAffectedService().getLabel(), i.getImpact(), i.getUrgency(), i.getPriority(), i.getStatus(), person(i.getAssignedTechnician()),
+                serviceLabel, i.getImpact(), i.getUrgency(), i.getPriority(), i.getStatus(), person(i.getAssignedTechnician()),
                 i.getCreatedAt(), i.getUpdatedAt(), i.getAcknowledgedAt(), i.getResolvedAt(), i.getVerifiedAt(), i.getClosedAt(),
                 i.getResolutionSummary(), i.getResolutionSteps(), notes, history, f == null ? null : new FeedbackView(f.getRating(), f.getComment(), f.getCreatedAt()),
                 user.getRole() == Role.TECHNICIAN && i.isPrimary(user.getId()), student ? List.of() : i.getCollaborators().stream()
-                    .map(c -> new TeamMember(person(c.getTechnician()), c.getResponsibility())).toList(), categories.suggest(i.getTitle(), i.getDescription()), i.getCriticality(), i.getResponseDeadline(), i.getResolutionDeadline(), i.responseSla(java.time.Instant.now()), i.resolutionSla(java.time.Instant.now()));
+                    .map(c -> new TeamMember(person(c.getTechnician()), c.getResponsibility())).toList(), categories.suggest(i.getTitle(), i.getDescription()), i.getCriticality(), i.getResponseDeadline(), i.getResolutionDeadline(), i.responseSla(java.time.Instant.now()), i.resolutionSla(java.time.Instant.now()),
+                i.isNeedsClassificationReview(), i.isAutoClassified(), i.getClassificationNotes());
     }
 }

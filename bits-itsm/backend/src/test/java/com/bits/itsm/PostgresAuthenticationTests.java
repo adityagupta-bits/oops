@@ -34,6 +34,36 @@ class PostgresAuthenticationTests {
     @Value("${DEMO_USER_PASSWORD}") private String password;
 
     @Test
+    void registersStudentAndRejectsInvalidRegistration() throws Exception {
+        String email = "registration.qa@hyderabad.bits-pilani.ac.in";
+        var json = JsonMapper.builder().build();
+        var body = new java.util.HashMap<String, String>(Map.of("name", "Registration QA", "email", email,
+                "password", password, "confirmPassword", password, "role", "ADMIN"));
+        // Use a guaranteed letter and number for the registration strength check.
+        body.put("password", password + "A1");
+        body.put("confirmPassword", password + "A1");
+        try {
+            mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body))).andExpect(status().isForbidden());
+            mvc.perform(post("/api/auth/register").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body))).andExpect(status().isCreated());
+            var saved = users.findByEmail(email).orElseThrow();
+            assertEquals(Role.STUDENT, saved.getRole());
+            assertTrue(passwords.matches(password + "A1", saved.getPasswordHash()));
+            mvc.perform(post("/api/auth/register").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body))).andExpect(status().isConflict());
+            body.put("confirmPassword", "different");
+            mvc.perform(post("/api/auth/register").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+            body.put("email", "qa@example.com");
+            mvc.perform(post("/api/auth/register").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body))).andExpect(status().isBadRequest());
+            mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("email", email, "password", password + "A1", "role", "ADMIN")))).andExpect(status().isUnauthorized());
+            var result = mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("email", email, "password", password + "A1", "role", "STUDENT")))).andExpect(status().isOk()).andReturn();
+            var session = (MockHttpSession) result.getRequest().getSession(false);
+            mvc.perform(get("/api/technician/incidents").session(session)).andExpect(status().isForbidden());
+            mvc.perform(get("/api/admin/users").session(session)).andExpect(status().isForbidden());
+        } finally {
+            users.findByEmail(email).ifPresent(users::delete);
+        }
+    }
+
+    @Test
     void persistsNinePolymorphicAccountsAndDoesNotResetThemOnReseeding() {
         assertEquals(9, users.count());
         assertEquals(4, users.findAll().stream().filter(Student.class::isInstance).count());

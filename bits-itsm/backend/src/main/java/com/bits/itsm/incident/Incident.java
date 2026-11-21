@@ -28,10 +28,10 @@ public class Incident {
     @Column(nullable = false, length = 100) private String title;
     @Column(nullable = false, length = 2000) private String description;
     @ManyToOne(fetch = FetchType.LAZY, optional = false) private Student reporter;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private Category category;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private ItService affectedService;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private Level impact;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private Level urgency;
+    @Enumerated(EnumType.STRING) private Category category;
+    @Enumerated(EnumType.STRING) private ItService affectedService;
+    @Enumerated(EnumType.STRING) private Level impact;
+    @Enumerated(EnumType.STRING) private Level urgency;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private Priority priority = Priority.PENDING;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private IncidentStatus status = IncidentStatus.NEW;
     @ManyToOne(fetch = FetchType.LAZY) private Technician assignedTechnician;
@@ -58,6 +58,10 @@ public class Incident {
     @OneToMany(mappedBy = "incident", cascade = CascadeType.PERSIST)
     private List<IncidentCollaborator> collaborators = new ArrayList<>();
 
+    @Column(nullable = false) private boolean needsClassificationReview = false;
+    @Column(nullable = false) private boolean autoClassified = false;
+    @Column(length = 2000) private String classificationNotes;
+
     protected Incident() { }
     public void editReport(String title, String description) {
         require(IncidentStatus.NEW);
@@ -65,28 +69,82 @@ public class Incident {
         this.description = text(description, 20, 2000);
         updatedAt = Instant.now();
     }
+    public Incident(String title, String description, Student reporter) {
+        this.title = text(title, 1, 100);
+        this.description = text(description, 20, 2000);
+        this.reporter = java.util.Objects.requireNonNull(reporter);
+    }
     public Incident(String title, String description, Student reporter, Category category, ItService service, Level impact, Level urgency) {
         this.title = text(title, 1, 100);
         this.description = text(description, 20, 2000);
         this.reporter = java.util.Objects.requireNonNull(reporter);
-        this.category = java.util.Objects.requireNonNull(category);
-        this.affectedService = java.util.Objects.requireNonNull(service);
-        this.impact = java.util.Objects.requireNonNull(impact);
-        this.urgency = java.util.Objects.requireNonNull(urgency);
+        this.category = category;
+        this.affectedService = service;
+        this.impact = impact;
+        this.urgency = urgency;
     }
 
     // State changes are centralized here; callers cannot set an arbitrary status.
     public void classify(Category category, Priority calculated) {
-        require(IncidentStatus.NEW);
+        if (status != IncidentStatus.NEW && status != IncidentStatus.CLASSIFIED) {
+            throw new IllegalStateException("Only unassigned incidents (NEW or CLASSIFIED) can be classified.");
+        }
         if (calculated == null || calculated == Priority.PENDING) throw new IllegalArgumentException("A calculated priority is required.");
         this.category = java.util.Objects.requireNonNull(category);
-        priority = calculated; move(IncidentStatus.CLASSIFIED);
+        priority = calculated;
+        this.needsClassificationReview = false;
+        move(IncidentStatus.CLASSIFIED);
+    }
+    public void adminClassify(Category category, ItService service, Level impact, Level urgency, Level criticality, Priority calculated) {
+        if (status != IncidentStatus.NEW && status != IncidentStatus.CLASSIFIED) {
+            throw new IllegalStateException("Only unassigned incidents (NEW or CLASSIFIED) can be classified or reclassified.");
+        }
+        if (calculated == null || calculated == Priority.PENDING) throw new IllegalArgumentException("A calculated priority is required.");
+        this.category = java.util.Objects.requireNonNull(category, "Category is required");
+        this.affectedService = java.util.Objects.requireNonNull(service, "Affected service is required");
+        this.impact = java.util.Objects.requireNonNull(impact, "Impact is required");
+        this.urgency = java.util.Objects.requireNonNull(urgency, "Urgency is required");
+        this.criticality = java.util.Objects.requireNonNull(criticality, "Criticality is required");
+        this.priority = calculated;
+        this.needsClassificationReview = false;
+        this.classificationNotes = null;
+        move(IncidentStatus.CLASSIFIED);
+    }
+    public void applyAutoClassification(Category category, ItService service, Level impact, Level urgency, Level criticality, Priority calculated) {
+        this.category = category;
+        this.affectedService = service;
+        this.impact = impact;
+        this.urgency = urgency;
+        this.criticality = criticality;
+        this.priority = calculated;
+        this.autoClassified = true;
+        this.needsClassificationReview = false;
+        this.status = IncidentStatus.CLASSIFIED;
+        this.updatedAt = Instant.now();
+    }
+    public void flagForClassificationReview(String reason, Category suggestedCategory, ItService detectedService, Level detectedUrgency, Level detectedImpact) {
+        this.needsClassificationReview = true;
+        this.classificationNotes = reason;
+        this.category = suggestedCategory;
+        this.affectedService = detectedService;
+        this.urgency = detectedUrgency;
+        this.impact = detectedImpact;
+        this.priority = Priority.PENDING;
+        this.status = IncidentStatus.NEW;
+        this.updatedAt = Instant.now();
     }
     // Snapshot targets once; policy edits and transfers never restart clocks.
     public void captureSla(SlaPolicy policy) {
         if (responseDeadline != null) return;
         if (priority != policy.getPriority()) throw new IllegalArgumentException("SLA priority mismatch.");
         responseTargetMinutes = policy.getResponseMinutes(); resolutionTargetMinutes = policy.getResolutionMinutes();
+        responseDeadline = createdAt.plusSeconds(responseTargetMinutes * 60L);
+        resolutionDeadline = createdAt.plusSeconds(resolutionTargetMinutes * 60L);
+    }
+    public void resetSla(SlaPolicy policy) {
+        if (policy == null) return;
+        responseTargetMinutes = policy.getResponseMinutes();
+        resolutionTargetMinutes = policy.getResolutionMinutes();
         responseDeadline = createdAt.plusSeconds(responseTargetMinutes * 60L);
         resolutionDeadline = createdAt.plusSeconds(resolutionTargetMinutes * 60L);
     }
@@ -119,10 +177,12 @@ public class Incident {
         collaborators.add(new IncidentCollaborator(this, technician, responsibility)); updatedAt = Instant.now();
     }
     public TechnicianSkill requiredSkill() {
+        if (category == null) return null;
         return category == Category.OTHER ? null : category == Category.APPLICATION ? TechnicianSkill.APPLICATION_SUPPORT : TechnicianSkill.valueOf(category.name());
     }
     public TechnicianSkill preferredSkill() {
         if (requiredSkill() != null) return requiredSkill();
+        if (affectedService == null) return null;
         return switch (affectedService) {
             case CAMPUS_WIFI, CAMPUS_NETWORK -> TechnicianSkill.NETWORK;
             case LAB_COMPUTERS -> TechnicianSkill.HARDWARE;
@@ -190,4 +250,10 @@ public class Incident {
     public List<IncidentHistory> getHistory() { return List.copyOf(history); }
     public IncidentFeedback getFeedback() { return feedback; }
     public List<IncidentCollaborator> getCollaborators() { return List.copyOf(collaborators); }
+    public boolean isNeedsClassificationReview() { return needsClassificationReview; }
+    public void setNeedsClassificationReview(boolean needsClassificationReview) { this.needsClassificationReview = needsClassificationReview; }
+    public boolean isAutoClassified() { return autoClassified; }
+    public void setAutoClassified(boolean autoClassified) { this.autoClassified = autoClassified; }
+    public String getClassificationNotes() { return classificationNotes; }
+    public void setClassificationNotes(String classificationNotes) { this.classificationNotes = classificationNotes; }
 }

@@ -5,6 +5,8 @@ import com.bits.itsm.incident.*;
 import com.bits.itsm.assignment.AssignmentSettingsRepository;
 import com.bits.itsm.audit.*;
 import com.bits.itsm.auth.EmailValidator;
+import com.bits.itsm.classification.ClassificationSettings;
+import com.bits.itsm.classification.IncidentClassificationService;
 import com.bits.itsm.notification.EmailChannel;
 import com.bits.itsm.notification.NotificationDelivery;
 import jakarta.validation.Valid;
@@ -25,14 +27,24 @@ public class AdminManagementController {
     private final AssignmentSettingsRepository settings;
     private final EmailChannel email;
     private final IncidentRepository incidents;
-    public AdminManagementController(UserRepository users, PasswordEncoder passwords, CatalogService catalog, AuditStore audit, AssignmentSettingsRepository settings, EmailChannel email, IncidentRepository incidents) {
-        this.users = users; this.passwords = passwords; this.catalog = catalog; this.audit = audit; this.settings = settings; this.email = email; this.incidents = incidents;
+    private final IncidentClassificationService classificationService;
+    private final IncidentService incidentService;
+
+    public AdminManagementController(UserRepository users, PasswordEncoder passwords, CatalogService catalog,
+                                     AuditStore audit, AssignmentSettingsRepository settings, EmailChannel email,
+                                     IncidentRepository incidents,
+                                     IncidentClassificationService classificationService,
+                                     IncidentService incidentService) {
+        this.users = users; this.passwords = passwords; this.catalog = catalog; this.audit = audit;
+        this.settings = settings; this.email = email; this.incidents = incidents;
+        this.classificationService = classificationService;
+        this.incidentService = incidentService;
     }
     public record UserView(Long id, String name, String email, Role role, boolean enabled, String studentNumber) { }
     public record NewUser(@NotBlank @Size(max=100) String name, @NotBlank String email, @NotNull Role role,
             @NotBlank @Size(min=8,max=72) String password, @Size(max=30) String studentNumber, TechnicianSkill skill) { }
     public record UserEdit(@NotBlank @Size(max=100) String name, boolean enabled) { }
-    public record CatalogEdit(@NotBlank @Size(max=100) String label, boolean enabled, Incident.Level criticality) { }
+    public record CatalogEdit(@NotBlank @Size(max=100) String label, boolean enabled, Incident.Level criticality, String keywords) { }
     private UserView view(User user) { return new UserView(user.getId(), user.getName(), user.getEmail(), user.getRole(), user.isEnabled(), user instanceof Student student ? student.getStudentNumber() : null); }
     private void audit(Authentication auth, String action, String before, String after, String description) {
         Long actor = users.findByEmail(auth.getName()).filter(User::isEnabled).orElseThrow().getId();
@@ -64,9 +76,31 @@ public class AdminManagementController {
     @GetMapping("/catalog") public List<CatalogEntry> catalog() { return catalog.all(); }
     @PutMapping("/catalog/{kind}/{code}") @Transactional public CatalogEntry updateCatalog(@PathVariable String kind, @PathVariable String code, @Valid @RequestBody CatalogEdit request, Authentication auth) {
         CatalogEntry entry = catalog.get(kind, code);
-        String before = entry.getLabel() + ":" + entry.isEnabled() + ":" + entry.getCriticality();
-        entry = catalog.update(kind, code, request.label(), request.enabled(), request.criticality());
-        audit(auth, "CATALOG_UPDATED", before, entry.getLabel() + ":" + entry.isEnabled() + ":" + entry.getCriticality(), entry.getId()); return entry;
+        String before = entry.getLabel() + ":" + entry.isEnabled() + ":" + entry.getCriticality() + ":" + entry.getKeywords();
+        entry = catalog.update(kind, code, request.label(), request.enabled(), request.criticality(), request.keywords());
+        audit(auth, "CATALOG_UPDATED", before, entry.getLabel() + ":" + entry.isEnabled() + ":" + entry.getCriticality() + ":" + entry.getKeywords(), entry.getId()); return entry;
+    }
+    @GetMapping("/classification-settings")
+    public ClassificationSettings classificationSettings() {
+        return classificationService.getSettings();
+    }
+    @PutMapping("/classification-settings")
+    @Transactional
+    public ClassificationSettings updateClassificationSettings(@RequestBody ClassificationSettings request, Authentication auth) {
+        User actor = users.findByEmail(auth.getName()).filter(User::isEnabled).orElseThrow();
+        return classificationService.updateSettings(request, actor);
+    }
+    @GetMapping("/classification-review")
+    public List<IncidentData.View> classificationReview(Authentication auth) {
+        return incidents.findAllByOrderByCreatedAtDesc().stream()
+                .filter(Incident::isNeedsClassificationReview)
+                .map(i -> incidentService.get(i.getId(), auth.getName()))
+                .toList();
+    }
+    @PostMapping("/incidents/{id}/classify")
+    @Transactional
+    public IncidentData.View classifyIncident(@PathVariable Long id, @Valid @RequestBody IncidentData.AdminCorrection request, Authentication auth) {
+        return incidentService.adminReclassify(id, request, auth.getName());
     }
     @GetMapping("/reports") public Map<String, Object> reports() {
         List<Incident> records = incidents.findAll();
@@ -78,7 +112,7 @@ public class AdminManagementController {
         report.put("resolutionBreaches", records.stream().filter(i -> i.resolutionSla(now) == SlaClock.Status.BREACHED).count());
         report.put("byStatus", records.stream().collect(java.util.stream.Collectors.groupingBy(i -> i.getStatus().name(), java.util.stream.Collectors.counting())));
         report.put("byPriority", records.stream().collect(java.util.stream.Collectors.groupingBy(i -> i.getPriority().name(), java.util.stream.Collectors.counting())));
-        report.put("byCategory", records.stream().collect(java.util.stream.Collectors.groupingBy(i -> i.getCategory().name(), java.util.stream.Collectors.counting())));
+        report.put("byCategory", records.stream().collect(java.util.stream.Collectors.groupingBy(i -> i.getCategory() == null ? "OTHER" : i.getCategory().name(), java.util.stream.Collectors.counting())));
         var resolution = records.stream().filter(i -> i.getResolvedAt() != null).mapToDouble(i -> java.time.Duration.between(i.getCreatedAt(), i.getResolvedAt()).toSeconds() / 3600.0).average();
         var feedback = records.stream().filter(i -> i.getFeedback() != null).mapToInt(i -> i.getFeedback().getRating()).average();
         report.put("averageResolutionHours", resolution.isPresent() ? Math.round(resolution.getAsDouble() * 100) / 100.0 : null);

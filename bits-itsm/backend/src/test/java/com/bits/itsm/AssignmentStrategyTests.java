@@ -47,3 +47,5 @@ class AssignmentStrategyTests {
         assertTrue(new LoadBasedAssignment().assign(incident(Incident.Category.OTHER), List.of()).isEmpty());
     }
 }
+
+

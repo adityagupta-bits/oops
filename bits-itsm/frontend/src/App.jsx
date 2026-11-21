@@ -7,14 +7,6 @@ import { apiRequest, apiPost, onSessionExpired } from './api.js';
 const loginNotice = 'Sign in with your institutional email and password to access campus IT support.';
 
 export default function App() {
-  // Development previews only; these do not authenticate a user.
-  if (import.meta.env.DEV) {
-    const preview = new URLSearchParams(window.location.search).get('preview');
-    if (preview === 'student') return <StudentDashboard />;
-    if (preview === 'admin') return <AdminDashboard />;
-    if (preview === 'technician') return <TechnicianDashboard />;
-  }
-
   return <AuthenticatedApp />;
 }
 
@@ -58,12 +50,16 @@ function AuthenticatedApp() {
   const Dashboard = { STUDENT: StudentDashboard, TECHNICIAN: TechnicianDashboard, ADMIN: AdminDashboard }[user.role];
   const sessionNotice = <div className="dashboard-preview-note">
     <div><p><strong>Signed in as {user.name}</strong> · {user.email}</p>{message && <p role="alert">{message}</p>}</div>
-    <button className="report-clear" type="button" disabled={signingOut} onClick={logout}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>
+    {user.role !== 'STUDENT' && <button className="report-clear" type="button" disabled={signingOut} onClick={logout}>{signingOut ? 'Signing out…' : 'Sign Out'}</button>}
   </div>;
-  return Dashboard ? <Dashboard sessionUser={user} sessionNotice={sessionNotice} /> : <main>{sessionNotice}<p role="alert">Your account role is not supported.</p></main>;
+  return Dashboard ? <Dashboard sessionUser={user} sessionNotice={sessionNotice} {...(user.role === 'STUDENT' ? { onLogout: logout, signingOut } : {})} /> : <main>{sessionNotice}<p role="alert">Your account role is not supported.</p></main>;
 }
 
 function LoginPage({ onLogin, initialMessage }) {
+  const [role, setRole] = useState('STUDENT');
+  const [registering, setRegistering] = useState(false);
+  const [name, setName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -83,6 +79,10 @@ function LoginPage({ onLogin, initialMessage }) {
     event.preventDefault();
     if (submitting) return;
     const nextErrors = {};
+    if (registering && (!name.trim() || password !== confirmPassword || password.length < 10 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password))) {
+      setMessage('Enter your name and matching passwords with at least 10 characters, a letter and a number.');
+      return;
+    }
     //*regex used here to identify to allow bits official id to have access to it portal
     if (!email) {
       nextErrors.email = 'Please enter your institutional email address.';
@@ -104,7 +104,13 @@ function LoginPage({ onLogin, initialMessage }) {
 
     setSubmitting(true);
     try {
-      const account = await apiPost('auth/login', { email, password });
+      if (registering) {
+        await apiPost('auth/register', { name, email, password, confirmPassword });
+        setRegistering(false); setPassword(''); setConfirmPassword('');
+        setMessage('Registration successful. Please sign in.');
+        return;
+      }
+      const account = await apiPost('auth/login', { email, password, role });
       setPassword('');
       onLogin(account);
     } catch (error) {
@@ -140,10 +146,14 @@ function LoginPage({ onLogin, initialMessage }) {
         <div className="signin-content">
           <div className="login-card">
             <span className="card-label">CAMPUS PORTAL</span>
-            <h2 id="signin-title">Welcome Back</h2>
-            <p className="signin-subtitle">Sign in using your BITS Hyderabad account</p>
+            <h2 id="signin-title">{registering ? 'Create Account' : 'Welcome Back'}</h2>
+            <p className="signin-subtitle">{registering ? 'Register with your BITS Hyderabad email' : 'Sign in using your BITS Hyderabad account'}</p>
 
             <form onSubmit={handleSubmit} noValidate aria-busy={submitting}>
+              <div className="auth-options">
+                {Object.entries({ STUDENT: 'Student', TECHNICIAN: 'Technician', ADMIN: 'Administrator' }).map(([value, label]) => <button key={value} type="button" className="report-clear" disabled={submitting} aria-pressed={role === value} onClick={() => { setRole(value); setRegistering(false); setMessage(''); }}>{label} Login</button>)}
+              </div>
+              {registering && <div className="field"><div className="floating-input"><input id="name" name="name" placeholder=" " value={name} onChange={e => setName(e.target.value)} autoComplete="name" required maxLength={100} /><label htmlFor="name">Full name</label></div></div>}
               <div className="field">
                 <div className="floating-input">
                   <input id="email" name="email" type="email" autoComplete="username" placeholder=" " value={email} onChange={handleChange} required spellCheck={false} autoCapitalize="none" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'email-error' : 'email-hint'} />
@@ -161,7 +171,9 @@ function LoginPage({ onLogin, initialMessage }) {
                 <p className="field-error" id="password-error" role="alert">{errors.password}</p>
               </div>
 
-              <button className="submit-button" type="submit" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign In'} <span aria-hidden="true">→</span></button>
+              {registering && <div className="field"><div className="floating-input"><input id="confirmPassword" name="confirmPassword" placeholder=" " type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" required /><label htmlFor="confirmPassword">Confirm password</label></div><p className="field-hint">Use at least 10 characters, including a letter and a number.</p></div>}
+              <button className="submit-button" type="submit" disabled={submitting}>{submitting ? 'Please wait…' : registering ? 'Register' : 'Sign In'} <span aria-hidden="true">→</span></button>
+              {role === 'STUDENT' && <p className="auth-switch">{!registering && 'New to BITSolve? '}<button type="button" disabled={submitting} onClick={() => { setRegistering(!registering); setPassword(''); setConfirmPassword(''); setErrors({}); setMessage(''); }}>{registering ? 'Back to Login' : 'Create a student account'}</button></p>}
               <p className="status-message" role="status" aria-hidden={!message}>{message || loginNotice}</p>
             </form>
 

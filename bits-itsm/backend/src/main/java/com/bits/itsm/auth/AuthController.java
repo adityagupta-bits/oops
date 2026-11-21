@@ -31,6 +31,37 @@ public class AuthController {
     private final SecurityContextRepository contexts;
     private final SessionAuthenticationStrategy sessions;
     private final UserRepository users;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwords;
+
+    public record Registration(String name, String email, String password, String confirmPassword) {
+        @Override public String toString() { return "Registration[redacted]"; }
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, String>> register(@RequestBody Registration input) {
+        String email = EmailValidator.normalize(input.email());
+        String password = input.password();
+        if (input.name() == null || input.name().isBlank() || input.name().trim().length() > 100
+                || password == null || password.length() < 10
+                || password.getBytes(StandardCharsets.UTF_8).length > 72
+                || !password.matches("(?s).*[A-Za-z].*") || !password.matches("(?s).*[0-9].*")
+                || !password.equals(input.confirmPassword())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Enter your name and matching passwords with at least 10 characters, a letter and a number (maximum 72 bytes)."));
+        }
+        if (users.existsByEmail(email)) return duplicateEmail();
+        try {
+            // Public registration always creates a student, regardless of client fields.
+            users.saveAndFlush(new com.bits.itsm.user.Student(input.name().trim(), email, passwords.encode(password), null));
+        } catch (org.springframework.dao.DataIntegrityViolationException duplicate) {
+            return duplicateEmail();
+        }
+        return ResponseEntity.status(201).body(Map.of("message", "Registration successful. Please sign in."));
+    }
+
+    private ResponseEntity<Map<String, String>> duplicateEmail() {
+        return ResponseEntity.status(409).body(Map.of("message", "This email is already registered."));
+    }
 
     public AuthController(AuthenticationManager authenticationManager, SecurityContextRepository contexts,
             SessionAuthenticationStrategy sessions, UserRepository users) {
@@ -41,7 +72,8 @@ public class AuthController {
     }
 
     public record LoginRequest(@NotBlank @Size(max = 254) String email,
-            @NotBlank @Size(max = 72) String password) {
+            @NotBlank @Size(max = 72) String password, Role role) {
+        public LoginRequest(String email, String password) { this(email, password, null); }
         @Override
         public String toString() { return "LoginRequest[credentials redacted]"; }
     }
@@ -67,6 +99,9 @@ public class AuthController {
         Authentication authentication = authenticationManager.authenticate(
                 UsernamePasswordAuthenticationToken.unauthenticated(email, credentials.password()));
         Account account = account(authentication);
+        if (credentials.role() != null && credentials.role() != account.role()) {
+            throw new BadCredentialsException("Use the correct role login.");
+        }
         sessions.onAuthentication(authentication, request, response);
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);

@@ -30,6 +30,9 @@ public class CatalogService implements ApplicationRunner {
         if (!get(kind, code).isEnabled()) throw new IllegalArgumentException("This catalog entry is disabled for new incidents.");
     }
     @Transactional public CatalogEntry update(String kind, String code, String label, boolean enabled, Incident.Level criticality) {
-        CatalogEntry entry = get(kind, code); entry.update(label, enabled, criticality); return entry;
+        return update(kind, code, label, enabled, criticality, get(kind, code).getKeywords());
+    }
+    @Transactional public CatalogEntry update(String kind, String code, String label, boolean enabled, Incident.Level criticality, String keywords) {
+        CatalogEntry entry = get(kind, code); entry.update(label, enabled, criticality, keywords); return entry;
     }
 }
