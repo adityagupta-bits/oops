@@ -212,8 +212,9 @@ export default function AdminManagement({ page, onNavigate }) {
 
   if (page === 'Manage IT Problem Templates') {
     return (
-      <section className="admin-management-container">
-        <div className="report-actions" style={{ marginBottom: '1rem' }}>
+      <section className="admin-management-container problem-templates-page">
+        <div className="report-actions template-toolbar">
+          <p>Create reusable starting points for student reports.</p>
           <button
             className="incident-view"
             onClick={() =>
@@ -228,21 +229,21 @@ export default function AdminManagement({ page, onNavigate }) {
               })
             }
           >
-            + Add New Problem Template
+            Create template
           </button>
         </div>
 
         {error && <p className="report-error" role="alert">{error}</p>}
 
         {editing && (
-          <form className="report-form admin-section" onSubmit={save}>
+          <form className="report-form admin-section template-editor" onSubmit={save}>
             <h3>{editing.id ? 'Edit Problem Template' : 'Create Problem Template'}</h3>
             <p className="report-guidance">
-              Campus templates allow students to select pre-packaged problem descriptions while retaining backend automatic priority classification.
+              Set the details students see when choosing a common problem.
             </p>
 
             <div className="report-field">
-              <label htmlFor="template-title">Template Title (Student Quick Pick)</label>
+              <label htmlFor="template-title">Template title</label>
               <input
                 id="template-title"
                 value={editing.title}
@@ -253,7 +254,7 @@ export default function AdminManagement({ page, onNavigate }) {
             </div>
 
             <div className="report-field">
-              <label htmlFor="template-category">Category Group</label>
+              <label htmlFor="template-category">Category group</label>
               <input
                 id="template-category"
                 value={editing.category}
@@ -265,7 +266,7 @@ export default function AdminManagement({ page, onNavigate }) {
             </div>
 
             <div className="report-field">
-              <label htmlFor="template-desc">Template Guidance / Suggested Details</label>
+              <label htmlFor="template-desc">Suggested details</label>
               <textarea
                 id="template-desc"
                 rows={3}
@@ -276,7 +277,7 @@ export default function AdminManagement({ page, onNavigate }) {
             </div>
 
             <div className="report-field">
-              <label htmlFor="template-keywords">Classification Keywords (comma-separated)</label>
+              <label htmlFor="template-keywords">Classification keywords (comma-separated)</label>
               <input
                 id="template-keywords"
                 value={editing.keywords}
@@ -303,7 +304,7 @@ export default function AdminManagement({ page, onNavigate }) {
 
             <div className="report-row">
               <div className="report-field">
-                <label htmlFor="template-order">Display Order Index</label>
+                <label htmlFor="template-order">Display order</label>
                 <input
                   id="template-order"
                   type="number"
@@ -312,14 +313,14 @@ export default function AdminManagement({ page, onNavigate }) {
                   onChange={(e) => field('displayOrder', Number(e.target.value))}
                 />
               </div>
-              <div className="report-field checkbox-field" style={{ alignSelf: 'flex-end', paddingBottom: '0.6rem' }}>
+              <div className="report-field checkbox-field template-availability">
                 <label>
                   <input
                     type="checkbox"
                     checked={editing.enabled}
                     onChange={(e) => field('enabled', e.target.checked)}
                   />{' '}
-                  <strong>Available to Students</strong>
+                  <span>Available to students</span>
                 </label>
               </div>
             </div>

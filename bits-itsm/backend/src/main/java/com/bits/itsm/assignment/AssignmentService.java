@@ -34,7 +34,7 @@ public class AssignmentService implements ApplicationRunner {
     public void run(ApplicationArguments arguments) {
         settings.initialize();
         settings.lock();
-        // Upgrade Phase 4C fields once, preserving disabled availability and existing skill data.
+        // Preserve existing availability and skills when adopting older database columns.
         if (legacyColumn("available")) jdbc.update("update app_users set availability = case when available = false then 'UNAVAILABLE' else 'AVAILABLE' end where role = 'TECHNICIAN' and availability is null");
         jdbc.update("update app_users set availability = 'AVAILABLE' where role = 'TECHNICIAN' and availability is null");
         if (legacyColumn("specialization")) {

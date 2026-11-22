@@ -317,7 +317,7 @@ export default function Notifications({
 
       {!loading && !error && filtered.length === 0 && (
         <p className="notification-empty-state">
-          {notifications.length ? 'No notifications match this filter.' : 'You have no notifications yet.'}
+          {notifications.length ? 'No notifications match this filter.' : 'No notifications yet. Updates about your incidents and support requests will appear here.'}
         </p>
       )}
     </section>

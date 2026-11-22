@@ -43,13 +43,13 @@ export default function LiveIncidents({ role, team = false, initialIncidentId, t
     return { incident: updated, request: isRequest ? result : null };
   }
 
-  return <>
+  return <div className="live-incidents-page">
     <div className="report-actions live-incidents-actions"><button className="report-clear" disabled={loading} onClick={() => setRefresh(value => value + 1)}>Refresh Incidents</button></div>
-    {role === 'ADMIN' && !loading && !error && <div className="report-actions" aria-label="Incident queues">
+    {role === 'ADMIN' && !loading && !error && <div className="incident-queue-summary" aria-label="Incident queues">
       <span>Awaiting classification: {incidents.filter(i => i.needsClassificationReview).length}</span>
       <span>Awaiting eligible technician: {incidents.filter(i => i.status === 'CLASSIFIED' && !i.assignedTechnician).length}</span>
       <span>Critical priority: {incidents.filter(i => i.priority === 'P1' && !['RESOLVED','VERIFIED','CLOSED'].includes(i.status)).length}</span>
     </div>}
     {loading ? <p role="status">Loading incidents…</p> : error ? <p className="report-error" role="alert">{error}</p> : <MyIncidents initialIncidentId={initialIncidentId} incidents={incidents} liveRole={role} team={team} options={options} onAction={action} titleOverride={title} dashboard={dashboard} />}
-  </>;
+  </div>;
 }

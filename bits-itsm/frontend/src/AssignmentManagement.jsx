@@ -1,3 +1,6 @@
+import Modal from './components/ui/Modal.jsx';
+import DirectCollaborators from './DirectCollaborators.jsx';
+import './incidentManagement.css';
 import React, { useEffect, useRef, useState } from 'react';
 import { apiRequest, apiPost, apiSend } from './api.js';
 import { readableLabel } from './MyIncidents.jsx';
@@ -255,7 +258,7 @@ function Review({ request, collaboration, admin, userId, onClose, onSaved }) {
     }
     setBusy(true);
     try {
-      if (admin && decision === 'approve' && !window.confirm('Approve this transfer and reassign the incident?')) {
+      if (admin && decision === 'approve' && !window.confirm(collaboration ? 'Approve this collaboration request?' : 'Approve this transfer and reassign the incident?')) {
         setBusy(false);
         return;
       }
@@ -278,7 +281,7 @@ function Review({ request, collaboration, admin, userId, onClose, onSaved }) {
   return (
     <dialog
       ref={dialog}
-      className="incident-dialog"
+      className="incident-dialog incident-management-dialog"
       aria-labelledby="request-review-title"
       onClose={onClose}
     >
@@ -401,6 +404,16 @@ export default function AssignmentManagement({ mode, role, userId, incidentId, o
   const [refresh, setRefresh] = useState(0);
   const [message, setMessage] = useState('');
   const [selected, setSelected] = useState(null);
+  const [teamIncident, setTeamIncident] = useState(null);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamError, setTeamError] = useState('');
+  const [teamOpen, setTeamOpen] = useState(false);
+  async function manageTeam(id) {
+    setTeamOpen(true); setTeamIncident(null); setTeamError(''); setTeamLoading(true);
+    try { setTeamIncident(await apiRequest(`incidents/${id}`)); }
+    catch (e) { setTeamError(e.message); }
+    finally { setTeamLoading(false); }
+  }
   const [profile, setProfile] = useState(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -578,14 +591,19 @@ export default function AssignmentManagement({ mode, role, userId, incidentId, o
               item.reason,
               readableLabel(item.status),
               date(item.requestedAt),
-              <button className="incident-view" onClick={() => setSelected(item)}>
-                Review #{item.id}
-              </button>,
+              <div className="report-actions"><button className="incident-view" onClick={() => setSelected(item)}>
+                {admin && item.status === 'PENDING' ? 'Approve / Reject' : 'View request'}
+              </button>{admin && <button className="incident-view" onClick={() => manageTeam(item.incidentId)}>Manage collaborators</button>}</div>,
             ])}
           />
         </>
       )}
 
+      <Modal isOpen={teamOpen} onClose={() => setTeamOpen(false)} title="Manage collaborators" className="incident-management-dialog">
+        {teamLoading && <p role="status">Loading incident team...</p>}
+        {teamError && <p role="alert">{teamError}</p>}
+        {teamIncident && <><p>Incident #{teamIncident.id}: {teamIncident.title}</p><DirectCollaborators key={teamIncident.id} incident={teamIncident} onSaved={async () => { setTeamIncident(await apiRequest(`incidents/${teamIncident.id}`)); saved(); }} /></>}
+      </Modal>
       {selected && (
         <Review
           request={selected}

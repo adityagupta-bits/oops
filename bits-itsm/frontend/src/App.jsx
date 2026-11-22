@@ -131,7 +131,6 @@ function LoginPage({ onLogin, initialMessage }) {
       }
     }
 
-    //*regex used here to identify to allow bits official id to have access to it portal
     if (!email) {
       nextErrors.email = 'Please enter your institutional email address.';
     } else if (email !== email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -174,7 +173,6 @@ function LoginPage({ onLogin, initialMessage }) {
     }
   }
 
-  // Password requirements calculation for student registration feedback
   const hasLength = password.length >= 12;
   const hasLetter = /[A-Za-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);

@@ -132,11 +132,11 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
   }
 
   return (
-    <section aria-labelledby="my-incidents-title">
+    <section className="incident-list-page" aria-labelledby="my-incidents-title">
       <div className="dashboard-welcome">
         <div>
           <h2 id="my-incidents-title">{title}</h2>
-          <p>{liveRole ? 'View and manage incidents available to your account.' : 'View, search, and track all your reported IT support requests.'}</p>
+          <p>{liveRole === 'ADMIN' ? 'Track campus reports, ownership and service deadlines.' : liveRole === 'TECHNICIAN' ? 'Review your assigned work and service deadlines.' : 'Track your reports and updates from the support team.'}</p>
         </div>
       </div>
 
@@ -243,8 +243,8 @@ export default function MyIncidents({ incidents, initialIncidentId, liveRole, te
         {incidents.length === 0 ? (
           <div className="empty-state-panel">
             <NavIcon name="incidents" />
-            <h3>No incidents found</h3>
-            <p>You have not reported any campus IT incidents yet.</p>
+            <h3>{liveRole === 'TECHNICIAN' ? 'No assigned incidents' : 'No incidents yet'}</h3>
+            <p>{liveRole === 'TECHNICIAN' ? 'Work assigned to you will appear here. Manage your availability from the dashboard.' : liveRole === 'ADMIN' ? 'Student reports will appear here as they are submitted.' : 'Use Report an Incident to request help with a campus IT problem.'}</p>
           </div>
         ) : filteredIncidents.length === 0 ? (
           <div className="empty-state-panel">

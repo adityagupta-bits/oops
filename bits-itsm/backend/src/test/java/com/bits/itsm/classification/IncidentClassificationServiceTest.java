@@ -183,4 +183,17 @@ class IncidentClassificationServiceTest {
         assertThrows(IllegalArgumentException.class, () ->
                 service.reclassify(incident, ItService.CAMPUS_WIFI, Category.NETWORK, Level.LOW, Level.LOW, "ok", admin));
     }
+
+    @Test void wifiTypographyDoesNotRequireExactSpellingOrInflateScores() {
+        var wifi=mockCatalogEntry("CAMPUS_WIFI","Campus Wi-Fi",Level.MEDIUM,"wifi, wi-fi, wireless");
+        var network=mockCatalogEntry("CAMPUS_NETWORK","Network",Level.HIGH,"lan, ethernet");
+        when(catalog.all()).thenReturn(List.of(wifi,network));
+        for(String word:List.of("Wi-Fi","Wi Fi","WiFi","Wi\u2011Fi","Wi\u2013Fi")) {
+            var result=service.detectService(word+" disconnects during online classes");
+            assertEquals(ItService.CAMPUS_WIFI,result.service());
+            assertEquals(1,result.matchCount());
+        }
+        assertTrue(service.detectService("LAN/Wi-Fi not working").ambiguous());
+        assertNull(service.detectService("My unrelated problem").service());
+    }
 }

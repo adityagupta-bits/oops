@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  /* Brand palette - BITS Pilani Enterprise ITSM Identity */
+  /* Brand colors */
   --bits-navy-950: #071527;
   --bits-navy-900: #0b1e36;
   --bits-navy-800: #102b4e;
@@ -121,9 +121,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   font-size: 14px;
 }
 
-/* ==========================================================================
-   AUTHENTICATION & PORTAL GATEWAY
-   ========================================================================== */
+/* AUTHENTICATION & PORTAL GATEWAY */
 
 .portal {
   display: grid;
@@ -142,8 +140,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   gap: 48px;
   padding: 56px clamp(36px, 5vw, 84px) 40px;
   color: #ffffff;
-  background: radial-gradient(ellipse at 100% 90%, #154562 0%, transparent 60%),
-              linear-gradient(145deg, #0b1e36 0%, #102b4e 50%, #071527 100%);
+  background: var(--bits-navy-900);
 }
 
 .welcome-panel::after {
@@ -303,9 +300,7 @@ h1 > span {
   display: grid;
   place-items: center;
   padding: 48px 32px;
-  background: radial-gradient(circle at 100% 0%, #f0fdfa, transparent 40%),
-              radial-gradient(circle at 0% 100%, #eff6ff, transparent 40%),
-              #f8fafc;
+  background: var(--bits-page);
 }
 
 .signin-content {
@@ -604,9 +599,7 @@ form {
   margin: 24px 0 0;
 }
 
-/* ==========================================================================
-   DASHBOARD LAYOUT (STUDENT, TECHNICIAN, ADMIN)
-   ========================================================================== */
+/* DASHBOARD LAYOUT (STUDENT, TECHNICIAN, ADMIN) */
 
 .student-dashboard, .technician-portal, .admin-portal {
   display: grid;
@@ -801,9 +794,7 @@ form {
   line-height: 1.5;
 }
 
-/* ==========================================================================
-   PAGE HEADERS & HERO BANNERS
-   ========================================================================== */
+/* PAGE HEADERS & HERO BANNERS */
 
 .bits-page-header {
   display: flex;
@@ -881,9 +872,7 @@ form {
   transform: translateY(-1px);
 }
 
-/* ==========================================================================
-   METRIC / STAT CARDS
-   ========================================================================== */
+/* METRIC / STAT CARDS */
 
 .dashboard-summary {
   display: grid;
@@ -943,9 +932,7 @@ form {
   color: var(--bits-text-muted);
 }
 
-/* ==========================================================================
-   TABLES & INCIDENT LISTS
-   ========================================================================== */
+/* TABLES & INCIDENT LISTS */
 
 .dashboard-incidents, .admin-section {
   background: var(--bits-surface);
@@ -1077,9 +1064,7 @@ form {
   line-height: inherit;
 }
 
-/* ==========================================================================
-   BADGES (STATUS, PRIORITY, TONES)
-   ========================================================================== */
+/* BADGES (STATUS, PRIORITY, TONES) */
 
 .bits-badge {
   display: inline-flex;
@@ -1198,9 +1183,7 @@ form {
 .priority-p2 { color: #d97706; }
 .priority-p3, .priority-p4 { color: #0284c7; }
 
-/* ==========================================================================
-   FORMS & CAMPUS PROBLEM SELECTOR
-   ========================================================================== */
+/* FORMS & CAMPUS PROBLEM SELECTOR */
 
 .report-incident {
   width: 100%;
@@ -1333,9 +1316,7 @@ form {
   color: var(--bits-teal-hover);
 }
 
-/* ==========================================================================
-   FILTER BARS & SEARCH CONTROLS
-   ========================================================================== */
+/* FILTER BARS & SEARCH CONTROLS */
 
 .incident-filters {
   display: grid;
@@ -1375,9 +1356,7 @@ form {
   font-size: 13px;
 }
 
-/* ==========================================================================
-   MODALS, DRAWERS & DIALOGS
-   ========================================================================== */
+/* MODALS, DRAWERS & DIALOGS */
 
 .bits-modal-overlay {
   position: fixed;
@@ -1491,9 +1470,7 @@ form {
   color: var(--bits-text-primary);
 }
 
-/* ==========================================================================
-   EMPTY STATES & NOTIFICATIONS
-   ========================================================================== */
+/* EMPTY STATES & NOTIFICATIONS */
 
 .bits-empty-state {
   display: flex;
@@ -1673,9 +1650,7 @@ form {
   border-radius: 2px;
 }
 
-/* ==========================================================================
-   RESPONSIVE LAYOUTS
-   ========================================================================== */
+/* RESPONSIVE LAYOUTS */
 
 @media (max-width: 1024px) {
   .dashboard-summary {
@@ -1780,7 +1755,7 @@ form {
 @keyframes signed-in-fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .signed-in-toast { animation: none; } }
 
-/* Shared portal polish: keep dialogs, controls and record cards consistent. */
+/* Shared portal controls */
 .bits-modal-overlay {
   padding: clamp(12px, 3vw, 28px);
 }
@@ -1949,9 +1924,7 @@ form {
 }
 
 
-/* ==========================================================================
-   NAVIGATION GROUPING & HEADERS (Admin & Dashboard Sidebars)
-   ========================================================================== */
+/* NAVIGATION GROUPING & HEADERS (Admin & Dashboard Sidebars) */
 .nav-group-section {
   display: flex;
   flex-direction: column;
@@ -1970,9 +1943,7 @@ form {
 
 .dashboard-sidebar nav .nav-icon { display: none; }
 
-/* ==========================================================================
-   STUDENT QUICK-PICKS & CAMPUS TEMPLATES (ReportIncident)
-   ========================================================================== */
+/* STUDENT QUICK-PICKS & CAMPUS TEMPLATES (ReportIncident) */
 /* Character counters & field mark */
 .character-count {
   font-size: 12px;
@@ -1994,9 +1965,7 @@ form {
   margin-left: 2px;
 }
 
-/* ==========================================================================
-   SUBMISSION CONFIRMATION CARD (ReportIncident)
-   ========================================================================== */
+/* SUBMISSION CONFIRMATION CARD (ReportIncident) */
 .submission-result-card {
   padding: 32px 28px;
   background: #ffffff;
@@ -2060,9 +2029,7 @@ form {
   align-items: center;
 }
 
-/* ==========================================================================
-   PROFILE SECTION & DANGER ACTIONS (Student, Tech, Admin)
-   ========================================================================== */
+/* PROFILE SECTION & DANGER ACTIONS (Student, Tech, Admin) */
 .profile-container {
   max-width: 800px;
   margin: 0 auto;
@@ -2092,7 +2059,7 @@ form {
   width: 76px;
   height: 76px;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--bits-navy-800), var(--bits-teal));
+  background: var(--bits-navy-800);
   color: #ffffff;
   font-size: 28px;
   font-weight: 700;
@@ -2220,9 +2187,7 @@ form {
   font-size: 12px;
 }
 
-/* ==========================================================================
-   PRIORITY STRATEGY CONFIGURATION (PriorityConfiguration)
-   ========================================================================== */
+/* PRIORITY STRATEGY CONFIGURATION (PriorityConfiguration) */
 .strategy-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -2313,9 +2278,7 @@ form {
   gap: 6px;
 }
 
-/* ==========================================================================
-   MODAL DIALOG REFINEMENTS & EYEBROWS
-   ========================================================================== */
+/* MODAL DIALOG REFINEMENTS & EYEBROWS */
 .dialog-header {
   display: flex;
   align-items: flex-start;
@@ -2388,9 +2351,7 @@ form {
   color: var(--bits-text-secondary);
 }
 
-/* ==========================================================================
-   KNOWLEDGE BASE & SUGGESTED SOLUTIONS
-   ========================================================================== */
+/* KNOWLEDGE BASE & SUGGESTED SOLUTIONS */
 .kb-article-card {
   padding: 20px 24px;
   background: #ffffff;
@@ -2462,9 +2423,7 @@ form {
   color: var(--bits-text-secondary);
 }
 
-/* ==========================================================================
-   SLA ATTENTION CALLOUT (Technician Portal)
-   ========================================================================== */
+/* SLA ATTENTION CALLOUT (Technician Portal) */
 .sla-attention-card {
   padding: 16px 20px;
   background: #fffbeb;
@@ -2731,10 +2690,181 @@ dialog.bits-modal-overlay::backdrop { background: transparent; }
 .dashboard-table-scroll td .sla-countdown { white-space: normal; overflow-wrap: anywhere; max-width: 100%; display: inline-block; line-height: 1.5; }
 .dashboard-table-scroll td:has(> time) { white-space: nowrap; }
 .admin-edit-actions { display: flex; align-items: center; gap: 10px; padding-top: 16px; border-top: 1px solid var(--bits-line, #e6ebf2); }
-.admin-edit-actions .submit-button-sm, .admin-edit-actions .report-clear { min-height: 40px; padding: 9px 16px; border-radius: 6px; font: inherit; font-size: 14px; font-weight: 500; line-height: 1.4; cursor: pointer; box-shadow: none; }
-.admin-edit-actions .submit-button-sm { background: var(--bits-navy-900, #1c2c48); color: white; border: 1px solid var(--bits-navy-900, #1c2c48); }
-.admin-edit-actions .report-clear { background: white; color: #526176; border: 1px solid #d5dee8; }
-.admin-edit-actions .submit-button-sm:hover:not(:disabled) { filter: brightness(1.15); }
-.admin-edit-actions .report-clear:hover:not(:disabled) { background: #f5f7fa; }
-.admin-edit-actions button:focus-visible { outline: 2px solid #52849b; outline-offset: 3px; }
-.admin-edit-actions button:disabled { opacity: .55; cursor: not-allowed; }
+/* Shared compact form actions, including settings outside edit dialogs. */
+.submit-button-sm,
+:is(.admin-edit-actions, .report-actions) .report-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 9px 16px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.submit-button-sm {
+  background: var(--bits-navy-900, #1c2c48);
+  color: #fff;
+  border: 1px solid var(--bits-navy-900, #1c2c48);
+}
+:is(.admin-edit-actions, .report-actions) .report-clear {
+  background: var(--bits-surface, #fff);
+  color: var(--bits-text-secondary, #526176);
+  border: 1px solid var(--bits-line, #d5dee8);
+}
+.submit-button-sm:hover:not(:disabled) { background: var(--bits-navy-800, #263e5b); border-color: var(--bits-navy-800, #263e5b); }
+:is(.admin-edit-actions, .report-actions) .report-clear:hover:not(:disabled) { background: #f5f7fa; border-color: #aebdcb; }
+.submit-button-sm:focus-visible,
+:is(.admin-edit-actions, .report-actions) .report-clear:focus-visible { outline: 2px solid var(--bits-teal, #52849b); outline-offset: 3px; }
+.submit-button-sm:disabled,
+:is(.admin-edit-actions, .report-actions) .report-clear:disabled { opacity: .55; cursor: not-allowed; }
+.admin-edit-actions { flex-wrap: wrap; }
+/* Shared control typography */
+:root { --bits-incident-text: #263449; }
+.dashboard-table-scroll table { font-size: 14px; line-height: 1.5; }
+.dashboard-table-scroll td { vertical-align: middle; }
+.dashboard-table-scroll .dashboard-incident-title,
+.dashboard-table-scroll .dashboard-incident-title strong { font-weight: 500; color: var(--bits-incident-text); }
+.dashboard-table-scroll time, .dashboard-incident-id { font-variant-numeric: tabular-nums; color: var(--bits-text-muted); }
+.dashboard-table-scroll tbody tr:hover { background: var(--bits-surface-hover); }
+.dashboard-welcome h2, .ops-heading h2 { font-size: clamp(24px, 2.2vw, 30px); font-weight: 600; line-height: 1.3; }
+.dashboard-section-heading h2, .student-detail-section h3, .ops-panel h3 { font-weight: 600; }
+.ops-dashboard { gap: 20px; color: var(--bits-incident-text); }
+.ops-panel { padding: 20px; border-color: var(--bits-line); border-radius: var(--radius-md); }
+.ops-metric { padding: 16px; border-radius: var(--radius-md); }
+.ops-metric strong { font-weight: 600; font-size: 28px; }
+.ops-team-name strong, .ops-updates strong { font-weight: 500; }
+.ops-loading { padding: 24px; text-align: left; font-size: 14px; }
+.empty-state-panel { min-height: 160px; padding: 24px; }
+.empty-state-panel h3 { font-size: 16px; font-weight: 600; }
+.incident-details > div { background: var(--bits-surface); border: 0; border-bottom: 1px solid var(--bits-line-subtle); border-radius: 0; padding: 12px 8px; }
+.incident-details dt { font-size: 12px; font-weight: 500; color: var(--bits-text-muted); letter-spacing: .02em; }
+.incident-details dd { font-size: 14px; color: var(--bits-text-secondary); }
+.bits-modal-title { font-weight: 600; }
+.profile-avatar-large { width: 64px; height: 64px; font-size: 24px; box-shadow: none; }
+.profile-header { gap: 16px; padding-bottom: 20px; margin-bottom: 20px; }
+.profile-name { font-size: 22px; font-weight: 600; }
+.technician-warning > svg, .text-warning > svg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; }
+.report-form { box-shadow: none; }
+.report-form textarea { min-height: 100px; }
+.conversation-empty, .conversation-state { padding: 24px 16px; font-size: 14px; line-height: 1.6; }
+.notification-empty-state { padding: 24px 16px; color: var(--bits-text-muted); line-height: 1.6; }
+@media (max-width: 600px) {
+  .ops-panel { padding: 16px; }
+  .profile-header { flex-wrap: wrap; }
+  .incident-details { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-table-scroll { overflow-x: auto; }
+}
+/* Notification inbox */
+.notifications-container { background: var(--bits-surface); border: 1px solid var(--bits-line); border-radius: 10px; padding: 24px; }
+.notifications-container .notification-inbox-header { margin-bottom: 20px; gap: 12px; }
+.notifications-container .notification-inbox-header h2 { color: var(--bits-text-secondary); font-size: 22px; font-weight: 600; letter-spacing: -.3px; }
+.notifications-container .notification-unread-count { font-size: 12px; color: var(--bits-text-muted); }
+.notifications-container .notifications-toolbar { padding-bottom: 12px; margin-bottom: 0; gap: 12px; }
+.notifications-container .filter-pill-group { gap: 4px; }
+.notifications-container .filter-pill { min-height: 36px; padding: 8px 14px; font-size: 13px; border-radius: 6px; }
+.notifications-container .filter-pill.active { background: #eef3f7; color: var(--bits-navy-800); }
+.notifications-container .notification-row { grid-template-columns: 28px minmax(0,1fr) 110px 155px; min-height: 88px; gap: 16px; padding: 14px 4px; border-bottom-color: var(--bits-line-subtle); }
+.notifications-container .notification-row-heading { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.notifications-container .notification-row-heading h3 { font-weight: 500; color: var(--bits-text-secondary); font-size: 14px; white-space: normal; overflow-wrap: anywhere; }
+.notifications-container .notification-row.is-unread .notification-row-heading h3 { font-weight: 600; color: #263449; }
+.notifications-container .notification-row-kind { color: var(--bits-text-muted); font-size: 11px; }
+.notifications-container .notification-row-copy p { margin-top: 5px; font-size: 13px; color: var(--bits-text-muted); line-height: 1.5; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.notifications-container .notification-row-time { font-size: 12px; color: var(--bits-text-muted); font-variant-numeric: tabular-nums; white-space: normal; text-align: right; }
+.notifications-container .notification-row-actions { flex-direction: column; align-items: flex-end; gap: 2px; }
+.notifications-container .notification-action-link, .notifications-container .notification-mark-read { min-height: 32px; padding: 6px 8px; font-size: 12px; border: 0; border-radius: 4px; background: transparent; }
+.notifications-container .notification-mark-read { color: var(--bits-text-muted); }
+.notifications-container .notification-toolbar-actions { gap: 8px; }
+.notifications-container .notification-row-actions button:hover:not(:disabled) { background: var(--bits-surface-hover); }
+.notifications-container .notification-group-heading { margin: 18px 4px 6px; color: var(--bits-text-muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+.notifications-container .notification-group + .notification-group { margin-top: 8px; }
+.notifications-container .notification-empty-state, .notifications-container .notification-feedback { padding: 32px 12px; font-size: 14px; text-align: center; }
+@media (max-width: 1100px) {
+ .notifications-container .notification-row { grid-template-columns: 28px minmax(0,1fr) 125px; gap: 8px 12px; }
+ .notifications-container .notification-row-time { grid-column: 2; grid-row: 2; text-align: left; }
+ .notifications-container .notification-row-actions { grid-column: 3; grid-row: 1 / span 2; }
+ .notifications-container .notification-row-icon { grid-column: 1; grid-row: 1; }
+ .notifications-container .notification-row-copy { grid-column: 2; grid-row: 1; }
+}
+@media (max-width: 600px) {
+ .notifications-container { padding: 16px; }
+ .notifications-container .notifications-toolbar { align-items: flex-start; flex-direction: column; }
+ .notifications-container .notification-toolbar-actions { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+ .notifications-container .notification-row { grid-template-columns: 22px minmax(0,1fr); padding: 16px 0; }
+ .notifications-container .notification-row-actions { grid-column: 2; grid-row: 3; flex-direction: row; justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+ .notifications-container .notification-row-actions button { min-height: 40px; padding-left: 0; }
+}
+/* Keep header notifications and identity in one compact horizontal group. */
+.dashboard-topbar .dashboard-user-area { display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-shrink: 0; }
+.dashboard-user-area .dashboard-profile { margin: 0; }
+.dashboard-user-area .ops-notification-shortcut { flex: 0 0 40px; width: 40px; height: 40px; padding: 10px; border: 0; border-radius: 8px; background: transparent; color: var(--bits-text-secondary); }
+.dashboard-user-area .ops-notification-shortcut:hover { background: var(--bits-surface-hover); }
+.dashboard-user-area .ops-notification-shortcut:focus-visible { outline: 2px solid var(--bits-teal-hover); outline-offset: 3px; }
+.dashboard-user-area .ops-notification-shortcut svg { width: 20px; height: 20px; }
+.dashboard-user-area .ops-notification-count { top: -2px; right: -4px; min-width: 18px; height: 18px; font-size: 10px; font-weight: 600; border-color: var(--bits-surface); }
+@media (max-width: 600px) { .dashboard-topbar .dashboard-user-area { gap: 8px; } }
+/* Incident workspace */
+.live-incidents-page { position: relative; }
+.live-incidents-page .live-incidents-actions { margin: 0 0 12px; padding: 0; min-height: 0; }
+.live-incidents-actions .report-clear { min-height: 36px; padding: 7px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; background: var(--bits-surface); }
+.incident-queue-summary { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 0 0 16px; font-size: 12px; line-height: 1.5; color: var(--bits-text-muted); }
+.incident-list-page > .dashboard-welcome { margin: 0 0 20px; padding: 0; }
+.incident-list-page #my-incidents-title { font-size: 26px; line-height: 1.3; font-weight: 600; letter-spacing: -.4px; color: var(--bits-text-secondary); margin: 0 0 6px; }
+.incident-list-page > .dashboard-welcome p { font-size: 14px; line-height: 1.5; color: var(--bits-text-muted); margin: 0; }
+.incident-list-page .dashboard-summary { margin: 0 0 16px; }
+.incident-list-page .bits-stat-card { padding: 16px 20px; box-shadow: none; }
+.incident-list-page .stat-card-title { font-size: 12px; font-weight: 500; color: var(--bits-text-muted); }
+.incident-list-page .stat-card-value { font-size: 26px; line-height: 1.25; font-weight: 600; color: var(--bits-text-secondary); font-variant-numeric: tabular-nums; }
+.incident-list-page > .report-guidance { font-size: 12px; line-height: 1.6; margin: 12px 0 20px; color: var(--bits-text-muted); max-width: 1000px; }
+.incident-list-page .incident-filters { padding: 16px 20px; gap: 16px; border-radius: 8px; box-shadow: none; margin-bottom: 24px; }
+.incident-list-page .incident-filters label { font-size: 12px; font-weight: 500; color: var(--bits-text-secondary); margin-bottom: 6px; }
+.incident-list-page .incident-filters :is(input,select) { font-size: 13px; line-height: 1.5; min-height: 40px; height: 40px; padding-top: 8px; padding-bottom: 8px; border-radius: 6px; }
+.incident-list-page .incident-filters .report-clear { min-height: 40px; padding: 8px 12px; font-size: 13px; border-radius: 6px; }
+.incident-list-page .dashboard-section-heading h2 { font-size: 17px; font-weight: 600; color: var(--bits-text-secondary); }
+.incident-list-page .dashboard-table-scroll th { font-size: 11px; font-weight: 600; letter-spacing: .035em; color: var(--bits-text-muted); }
+.incident-list-page .dashboard-table-scroll td { font-size: 13px; line-height: 1.5; }
+@media(max-width:600px) { .incident-list-page #my-incidents-title { font-size: 23px; } .incident-list-page .incident-filters { padding: 16px; } .incident-queue-summary { gap: 6px 16px; } .incident-list-page .bits-stat-card { padding: 14px 12px; } }
+
+/* Scoped problem-template forms and saved records. */
+.problem-templates-page { max-width: 1180px; margin-inline: auto; }
+.problem-templates-page .template-toolbar { justify-content: space-between; margin: 0 0 20px; gap: 12px; }
+.problem-templates-page .template-toolbar p { margin: 0; color: var(--bits-text-muted); font-size: 14px; }
+.problem-templates-page .template-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--bits-line); border-radius: 8px; box-shadow: none; }
+.problem-templates-page .template-editor > h3 { grid-column: 1 / -1; margin: 0; font-size: 20px; line-height: 1.35; font-weight: 600; color: var(--bits-text-secondary); }
+.problem-templates-page .template-editor > .report-guidance { grid-column: 1 / -1; margin: -12px 0 4px; }
+.problem-templates-page .template-editor .report-field { min-width: 0; margin: 0; }
+.problem-templates-page .template-editor .report-field:has(#template-desc),
+.problem-templates-page .template-editor .report-field:has(#template-keywords),
+.problem-templates-page .template-editor > .report-row,
+.problem-templates-page .template-editor > .report-actions { grid-column: 1 / -1; }
+.problem-templates-page .template-editor label { display: block; margin: 0 0 7px; color: var(--bits-text-secondary); font-size: 13px; line-height: 1.5; font-weight: 500; }
+.problem-templates-page .template-editor :is(input:not([type="checkbox"]), select, textarea) { width: 100%; min-height: 42px; height: auto; padding: 10px 12px; font: inherit; font-size: 14px; line-height: 1.5; border: 1px solid var(--bits-line, #d5dee8); border-radius: 6px; background: var(--bits-surface); color: var(--bits-text-secondary); box-shadow: none; }
+.problem-templates-page .template-editor textarea { min-height: 100px; resize: vertical; }
+.problem-templates-page .template-editor .report-guidance { font-size: 12px; line-height: 1.6; color: var(--bits-text-muted); }
+.problem-templates-page .template-editor .report-field .report-guidance { margin: 7px 0 0; }
+.problem-templates-page .template-editor > .report-row { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 24px; align-items: end; margin: 0; }
+.problem-templates-page .template-editor .template-availability { padding: 0; align-self: end; }
+.problem-templates-page .template-editor .template-availability label { display: inline-flex; align-items: center; gap: 10px; min-height: 42px; margin: 0; cursor: pointer; }
+.problem-templates-page .template-editor input[type="checkbox"] { appearance: auto; width: 17px; height: 17px; min-width: 17px; min-height: 17px; flex: 0 0 17px; padding: 0; margin: 0; accent-color: var(--bits-navy-900); box-shadow: none; }
+.problem-templates-page .template-editor > .report-actions { margin: 4px 0 0; padding-top: 20px; border-top: 1px solid var(--bits-line); gap: 10px; }
+.problem-templates-page .dashboard-incidents { border-radius: 8px; box-shadow: none; }
+.problem-templates-page .dashboard-section-heading { padding: 18px 20px; }
+.problem-templates-page .dashboard-section-heading h2 { font-size: 17px; font-weight: 600; }
+.problem-templates-page .dashboard-table-scroll table { min-width: 680px; table-layout: auto; }
+.problem-templates-page .dashboard-table-scroll td { padding: 14px 20px; font-size: 14px; line-height: 1.5; font-weight: 400; color: var(--bits-text-secondary); }
+.problem-templates-page .dashboard-table-scroll td:first-child { width: 42%; font-weight: 500; }
+@media (max-width: 640px) {
+  .problem-templates-page .template-editor { grid-template-columns: minmax(0, 1fr); padding: 18px; gap: 18px; }
+  .problem-templates-page .template-editor > .report-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .problem-templates-page #template-order { max-width: 160px; }
+  .problem-templates-page .template-editor .report-actions .report-clear { width: auto; }
+}

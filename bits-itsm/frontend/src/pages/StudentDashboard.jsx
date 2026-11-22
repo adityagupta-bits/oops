@@ -1,3 +1,4 @@
+import NotificationShortcut from '../components/NotificationShortcut.jsx';
 import React, { useState } from 'react';
 import PasswordSettings from '../PasswordSettings.jsx';
 import ReportIncident from '../ReportIncident.jsx';
@@ -9,9 +10,7 @@ import MyIncidents, { IncidentSummary, incidentStatuses, readableLabel } from '.
 import NavIcon from '../components/NavIcon.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import StatCard from '../components/ui/StatCard.jsx';
-//* some of the sample entries 
 import { demoIncidents as sampleIncidents, users, studentNotifications } from '../demoData.js';
-//* gives basic overview of present status of incidents 
 export default function StudentDashboard({ incidents: allIncidents = sampleIncidents, sessionUser, sessionNotice, onLogout, signingOut = false }) {
   const [page, setPage] = useState('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(() => window.matchMedia('(min-width: 901px)').matches);
@@ -118,13 +117,13 @@ export default function StudentDashboard({ incidents: allIncidents = sampleIncid
                 : 'Student Dashboard'}
             </h1>
           </div>
-          <button type="button" className="dashboard-profile" onClick={() => navigate('profile')} title="View Profile" aria-label="View student profile">
+          <div className="dashboard-user-area"><NotificationShortcut live={Boolean(sessionUser)} onOpen={() => navigate('notifications')} /><button type="button" className="dashboard-profile" onClick={() => navigate('profile')} title="View Profile" aria-label="View student profile">
             <span className="dashboard-avatar" aria-hidden="true">{initials}</span>
             <div>
               <strong>{currentUser?.name}</strong>
               <span>{sessionUser ? 'Student' : 'Student · Demo'}</span>
             </div>
-          </button>
+          </button></div>
         </header>
 
         <main className="dashboard-content">

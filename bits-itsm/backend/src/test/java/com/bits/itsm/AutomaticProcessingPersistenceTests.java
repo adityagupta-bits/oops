@@ -105,7 +105,7 @@ class AutomaticProcessingPersistenceTests {
         assertEquals(IncidentStatus.ASSIGNED,stored.getStatus());
         assertEquals(technician.getId(),stored.getAssignedTechnician().getId());
         assertEquals(1,stored.getHistory().stream().filter(h -> h.getAction().equals("AUTO_ASSIGNED")).count());
-        assertTrue(audit.findByIncident(created.id()).stream().anyMatch(a -> a.action().equals("AUTO_CLASSIFIED") && a.description().contains("MULTIPLICATIVE")));
+        assertTrue(audit.findByIncident(created.id()).stream().anyMatch(a -> a.action().equals("AUTO_CLASSIFIED") && a.description().contains(priorities.current().getStrategy().name())));
         assertTrue(audit.findByIncident(created.id()).stream().anyMatch(a -> a.action().equals("AUTO_ASSIGNED")));
         assertTrue(jdbc.queryForObject("select count(*) from notification_deliveries where incident_id=? and recipient_id=?",Integer.class,created.id(),technician.getId())>0);
         for(var actor:java.util.List.of(student,technician)) {
@@ -331,5 +331,24 @@ class AutomaticProcessingPersistenceTests {
         em.flush();
         mvc.perform(get("/api/student/problem-templates").with(user(student.getEmail()).roles("STUDENT")))
             .andExpect(status().isOk()).andExpect(jsonPath("$[?(@.title == 'Research mesh issue')].categoryCode").value(org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.nullValue())));
+    }
+
+    @Test void naturalWifiReportClassifiesAndAssignsWithConfiguredClassAliases() {
+        catalog.update("SERVICE","CAMPUS_WIFI","Campus Wi-Fi",true,Level.MEDIUM,"wifi, wi-fi, wireless, eduroam");
+        classificationSettings.findById(1L).orElseThrow().update(true,"urgent, during an online class, during online classes","routine","all students","several students",Level.LOW,Level.MEDIUM,true);
+        catalog.update("SERVICE","CAMPUS_NETWORK","Campus Network",true,Level.HIGH,"lan, ethernet, network");
+        var result=service.create(new IncidentData.Create("Hostel LAN/Wi-Fi not working",
+            "Several students on our hostel floor are experiencing repeated Wi-Fi disconnections during an online class. The issue started this morning, affects around 20 students, and mobile data is unreliable in these rooms.",
+            Category.NETWORK,ItService.CAMPUS_NETWORK,null,null,20),student.getEmail());
+        assertTrue(result.autoClassified());
+        assertEquals(IncidentStatus.ASSIGNED,result.status());
+        assertEquals(ItService.CAMPUS_WIFI,result.affectedService());
+        assertEquals(Level.MEDIUM,result.impact());
+        assertEquals(Level.HIGH,result.urgency());
+        assertNotNull(result.assignedTechnician());
+        assertNotNull(result.resolutionDeadline());
+        assertEquals(priorities.current().calculator().calculate(Level.MEDIUM,Level.HIGH,Level.MEDIUM),result.priority());
+        em.flush(); em.clear();
+        assertEquals("ASSIGNED",jdbc.queryForObject("select status from incidents where id=?",String.class,result.id()));
     }
 }

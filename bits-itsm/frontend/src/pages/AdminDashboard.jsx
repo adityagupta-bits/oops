@@ -1,3 +1,4 @@
+import NotificationShortcut from '../components/NotificationShortcut.jsx';
 import AdminManagement from '../AdminManagement.jsx';
 import PasswordSettings from '../PasswordSettings.jsx';
 import React, { useEffect, useRef, useState } from 'react';
@@ -1122,13 +1123,13 @@ export default function AdminDashboard({ sessionUser, sessionNotice, onLogout, s
             <Button27 isOpen={isMenuOpen} onToggle={() => setIsMenuOpen(!isMenuOpen)} controls="admin-sidebar" />
             <h1>{page === 'Dashboard' ? 'Administrator Dashboard' : page}</h1>
           </div>
-          <button type="button" className="dashboard-profile" onClick={() => navigate('Profile')} title="View Profile" aria-label="View administrator profile">
+          <div className="dashboard-user-area"><NotificationShortcut live={Boolean(sessionUser)} onOpen={() => navigate('Notifications')} /><button type="button" className="dashboard-profile" onClick={() => navigate('Profile')} title="View Profile" aria-label="View administrator profile">
             <span className="dashboard-avatar" aria-hidden="true">{initials}</span>
             <div>
               <strong>{admin.name}</strong>
               <span>{sessionUser ? 'Administrator' : 'Administrator · Demo'}</span>
             </div>
-          </button>
+          </button></div>
         </header>
 
         <main className="dashboard-content">

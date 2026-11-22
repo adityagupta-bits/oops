@@ -1,3 +1,4 @@
+import NotificationShortcut from '../components/NotificationShortcut.jsx';
 import Notifications from '../Notifications.jsx';
 import PasswordSettings from '../PasswordSettings.jsx';
 import LiveIncidents from '../LiveIncidents.jsx';
@@ -206,7 +207,7 @@ function SlaAttention({ incidents, onView, onAction }) {
                   <td className="dashboard-incident-title">
                     <strong>{incident.title}</strong>
                     {incident.slaWarning && (
-                      <p className="report-guidance text-warning">⚠ {incident.slaWarning}</p>
+                      <p className="report-guidance text-warning"><NavIcon name="alert" /> {incident.slaWarning}</p>
                     )}
                   </td>
                   <td><TechBadge value={incident.priority} /></td>
@@ -322,7 +323,7 @@ function IncidentDetails({ incident, backLabel, onBack, onAction }) {
         ]}
       >
         {incident.slaWarning && (
-          <p className="technician-warning">⚠ Incident {incident.id}: {incident.slaWarning}</p>
+          <p className="technician-warning"><NavIcon name="alert" /> Incident {incident.id}: {incident.slaWarning}</p>
         )}
         {['AT_RISK', 'BREACHED'].includes(incident.slaStatus) && (
           <button type="button" className="danger-button-sm" onClick={() => onAction('escalate', incident)}>
@@ -815,7 +816,7 @@ function MyWorkload({ technician, workload, onView, onAction }) {
       >
         {workload.total >= technician.workloadLimit && (
           <div className="technician-warning">
-            ⚠ Your active workload is at maximum capacity. Consider redistributing pending tickets.
+            <NavIcon name="alert" /> Your active workload is at maximum capacity. Consider redistributing pending tickets.
           </div>
         )}
       </DetailSection>
@@ -1213,7 +1214,7 @@ export default function TechnicianDashboard({
             </h1>
           </div>
 
-          <div className="dashboard-user-area">
+          <div className="dashboard-user-area"><NotificationShortcut live={Boolean(sessionUser)} onOpen={() => navigate('notifications')} />
             <button type="button" className="dashboard-profile" onClick={() => navigate('profile')} title="View Profile" aria-label="View technician profile">
               <span className="dashboard-avatar" aria-hidden="true">{initials}</span>
               <div className="technician-header-profile-copy">

@@ -49,6 +49,13 @@ class TechnicianAvailabilitySyncPersistenceTests {
         admin = (Administrator) users.findAll().stream().filter(u -> u instanceof Administrator && u.isEnabled()).findFirst().orElseThrow();
         student = (Student) users.findAll().stream().filter(u -> u instanceof Student && u.isEnabled()).findFirst().orElseThrow();
         technician = (Technician) users.findAll().stream().filter(u -> u instanceof Technician && u.isEnabled()).findFirst().orElseThrow();
+        // Isolate eligibility to this technician; restored datasets may contain alternatives.
+        for (var account : users.findAll()) {
+            if (account instanceof Technician other && !other.getId().equals(technician.getId())) {
+                other.setAvailability(Technician.Availability.UNAVAILABLE);
+            }
+        }
+        users.flush();
     }
 
     @Test

@@ -73,7 +73,7 @@ public class IncidentClassificationService {
         if (text == null || text.isBlank()) {
             return new DetectionResult(null, null, 0, false, List.of());
         }
-        String normalized = text.toLowerCase(Locale.ROOT);
+        String normalized = normalizeMatchingText(text);
         List<CatalogEntry> activeServices = catalog.all().stream()
                 .filter(c -> c.isEnabled() && c.getCriticality() != null && "SERVICE".equals(c.getKind()))
                 .toList();
@@ -95,7 +95,7 @@ public class IncidentClassificationService {
             List<String> keywords = new ArrayList<>();
             if (entry.getKeywords() != null && !entry.getKeywords().isBlank()) {
                 keywords.addAll(Arrays.stream(entry.getKeywords().split("[,;]"))
-                        .map(s -> s.trim().toLowerCase(Locale.ROOT))
+                        .map(IncidentClassificationService::normalizeMatchingText)
                         .filter(s -> !s.isEmpty())
                         .distinct()
                         .toList());
@@ -131,11 +131,21 @@ public class IncidentClassificationService {
         return new DetectionResult(bestService, bestEntry, bestScore, false, bestKeywords);
     }
 
+
+    // Treat typographic hyphens and ordinary Wi-Fi spelling variants identically.
+    // Catalog keywords remain authoritative; aliases do not count as extra votes.
+    private static String normalizeMatchingText(String text) {
+        return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKC)
+                .toLowerCase(Locale.ROOT).replaceAll("[\\p{Pd}\\u2212]", "-")
+                .replaceAll("(?<![a-z0-9])wi[\\s-]*fi(?![a-z0-9])", "wifi")
+                .replaceAll("\\s+", " ").trim();
+    }
+
     public Level determineUrgency(String text, ClassificationSettings settings) {
         if (text == null || text.isBlank()) {
             return null;
         }
-        String normalized = text.toLowerCase(Locale.ROOT);
+        String normalized = normalizeMatchingText(text);
         int highMatches = countMatches(normalized, settings.getHighUrgencyKeywords());
         int lowMatches = countMatches(normalized, settings.getLowUrgencyKeywords());
 
@@ -152,7 +162,7 @@ public class IncidentClassificationService {
         if (text == null || text.isBlank()) {
             return null;
         }
-        String normalized = text.toLowerCase(Locale.ROOT);
+        String normalized = normalizeMatchingText(text);
         int highMatches = countMatches(normalized, settings.getHighImpactKeywords());
         int mediumMatches = countMatches(normalized, settings.getMediumImpactKeywords());
 
@@ -171,8 +181,8 @@ public class IncidentClassificationService {
         for (String kw : commaKeywords.split("[,;]")) {
             String trimmed = kw.trim();
             if (!trimmed.isEmpty()) {
-                Pattern pattern = Pattern.compile("(?<![a-z0-9])" + Pattern.quote(trimmed.toLowerCase(Locale.ROOT)) + "(?![a-z0-9])");
-                if (pattern.matcher(text).find()) {
+                Pattern pattern = Pattern.compile("(?<![a-z0-9])" + Pattern.quote(normalizeMatchingText(trimmed)) + "(?![a-z0-9])");
+                if (pattern.matcher(normalizeMatchingText(text)).find()) {
                     count++;
                 }
             }
@@ -213,6 +223,15 @@ public class IncidentClassificationService {
 
         String fullText = incident.getTitle() + " " + incident.getDescription();
         DetectionResult serviceDetection = detectService(fullText);
+        // A combined LAN/Wi-Fi template is broader than the actual reported fault.
+        // Only disambiguate that template when the description identifies one network service.
+        String normalizedTitle = normalizeMatchingText(incident.getTitle());
+        boolean combinedNetworkTemplate = normalizedTitle.contains("lan/wifi") || normalizedTitle.contains("lan / wifi");
+        DetectionResult descriptionDetection = detectService(incident.getDescription());
+        boolean specificNetworkEvidence = combinedNetworkTemplate && !descriptionDetection.ambiguous()
+                && (ItService.CAMPUS_WIFI.equals(descriptionDetection.service())
+                    || ItService.CAMPUS_NETWORK.equals(descriptionDetection.service()));
+        if (specificNetworkEvidence) serviceDetection = descriptionDetection;
 
         ItService detectedService = serviceDetection.service();
 
@@ -249,7 +268,9 @@ public class IncidentClassificationService {
         }
         boolean criticalityConfigured = entry != null && entry.getCriticality() != null;
         boolean conflictingHint = detectedService != null && incident.getReportedService() != null
-                && !detectedService.equals(incident.getReportedService());
+                && !detectedService.equals(incident.getReportedService())
+                && !(specificNetworkEvidence && (ItService.CAMPUS_NETWORK.equals(incident.getReportedService())
+                    || ItService.CAMPUS_WIFI.equals(incident.getReportedService())));
         boolean conflictingScope = Integer.valueOf(1).equals(incident.getReportedAffectedUsers()) && (impact==Level.HIGH || impact==Level.MEDIUM);
 
         if (!serviceIdentified || !criticalityConfigured || urgency == null || impact == null || conflictingHint || conflictingScope) {
@@ -283,7 +304,7 @@ public class IncidentClassificationService {
                 + ", Category: " + category + ", Impact: " + impact + ", Urgency: " + urgency
                 + ", Criticality: " + criticality + " -> Priority: " + calculated
                 + ". SLA response: " + incident.getResponseDeadline() + ", resolution: " + incident.getResolutionDeadline();
-        String evidence = "Service keyword matches: " + serviceDetection.matchedKeywords()
+        String evidence = "Combined network template resolved from description=" + specificNetworkEvidence + "; Service keyword matches: " + serviceDetection.matchedKeywords()
                 + "; reported urgency=" + incident.getReportedUrgency() + "; evaluated urgency=" + urgency
                 + "; urgency rules HIGH=" + settings.getHighUrgencyKeywords() + ", LOW=" + settings.getLowUrgencyKeywords()
                 + "; impact rules HIGH=" + settings.getHighImpactKeywords() + ", MEDIUM=" + settings.getMediumImpactKeywords();

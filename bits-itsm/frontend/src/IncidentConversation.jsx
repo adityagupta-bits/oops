@@ -204,7 +204,7 @@ export default function IncidentConversation({ incidentId, role, initialChannel 
                 )}
               </li>
             ))}
-            {messages.length === 0 && <li className="conversation-empty">No messages yet. Start the conversation when you are ready.</li>}
+            {messages.length === 0 && <li className="conversation-empty">No messages yet. Use the message field below to share an update or ask a question.</li>}
           </ol>
         )}
 
