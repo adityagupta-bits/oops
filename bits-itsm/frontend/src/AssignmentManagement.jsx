@@ -22,12 +22,12 @@ const skills = [
 ];
 const date = (value) => (value ? new Date(value).toLocaleString() : 'Not reviewed');
 
-function Table({ title, headers, rows }) {
+function Table({ title, headers, rows, className = '' }) {
   return (
-    <section className="dashboard-incidents admin-section">
+    <section className={`dashboard-incidents admin-section ${className}`}>
       <div className="dashboard-section-heading">
         <h2>{title}</h2>
-        <span className="results-counter-pill">{rows.length} records</span>
+        <span className="results-counter-pill">{rows.length} {rows.length === 1 ? 'record' : 'records'}</span>
       </div>
       {rows.length ? (
         <div className="dashboard-table-scroll" role="region" aria-label={title} tabIndex={0}>
@@ -465,7 +465,7 @@ export default function AssignmentManagement({ mode, role, userId, incidentId, o
     <>
       {mode === 'strategy' && <PriorityConfiguration />}
 
-      <div className="report-actions" style={{ marginBottom: '1rem' }}>
+      <div className={`report-actions ${mode === 'workload' && !admin ? 'technician-workload-toolbar' : ''}`} style={{ marginBottom: '1rem' }}>
         <button className="report-clear" disabled={loading} onClick={() => setRefresh((v) => v + 1)}>
           Refresh {mode === 'workload' ? 'Workload' : mode === 'strategy' ? 'Strategy' : 'Requests'}
         </button>
@@ -483,13 +483,14 @@ export default function AssignmentManagement({ mode, role, userId, incidentId, o
       ) : mode === 'strategy' ? (
         <React.Fragment key={refresh}><StrategyForm current={data} onSaved={saved} /><AssignmentPreview /></React.Fragment>
       ) : mode === 'workload' ? (
-        <>
-          <p className="report-guidance">
-            Active: Assigned, Acknowledged and In Progress. Primary and collaboration counts are tracked separately. Low: below 50%; Moderate: 50–79%; High: 80–99%; Overloaded: at or above capacity.
+        <div className={admin ? undefined : 'technician-workload-page'}>
+          <p className="report-guidance workload-guidance">
+            <span>Active work includes Assigned, Acknowledged, and In Progress incidents. Primary and collaboration counts are shown separately.</span>
+            <span>Load levels: Low below 50%; Moderate 50–79%; High 80–99%; Overloaded at or above capacity.</span>
           </p>
 
           {!admin && (
-            <section className="dashboard-summary">
+            <section className="dashboard-summary workload-summary" aria-label="Workload summary">
               {[
                 ['Active Primary', data.activePrimary],
                 ['Active Collaboration', data.activeCollaboration],
@@ -506,7 +507,9 @@ export default function AssignmentManagement({ mode, role, userId, incidentId, o
             </section>
           )}
 
+          {!admin && <p className="workload-mobile-hint">Swipe the table to see all capacity details.</p>}
           <Table
+            className={admin ? '' : 'technician-workload-table'}
             title={admin ? 'Technician Workloads' : 'Availability & Capacity'}
             headers={[
               'Technician',
@@ -522,12 +525,12 @@ export default function AssignmentManagement({ mode, role, userId, incidentId, o
             rows={rows.map((item) => [
               item.name,
               item.skills.map(readableLabel).join(', '),
-              item.enabled ? readableLabel(item.availability) : 'Disabled',
+              item.enabled ? <span className={`workload-state workload-state-${String(item.availability).toLowerCase()}`}>{readableLabel(item.availability)}</span> : 'Disabled',
               item.activePrimary,
               item.activeCollaboration,
               `${item.total} / ${item.maxWorkload}`,
               item.remainingCapacity,
-              readableLabel(item.level),
+              <span className={`workload-level workload-level-${String(item.level).toLowerCase()}`}>{readableLabel(item.level)}</span>,
               ...(admin
                 ? [
                     <button className="incident-view" onClick={() => setProfile(item)}>
@@ -538,7 +541,7 @@ export default function AssignmentManagement({ mode, role, userId, incidentId, o
             ])}
           />
           {profile && <ProfileForm key={profile.id} technician={profile} onSaved={saved} />}
-        </>
+        </div>
       ) : (
         <>
           <div className="incident-filters admin-filters" style={{ marginBottom: '1.25rem' }}>

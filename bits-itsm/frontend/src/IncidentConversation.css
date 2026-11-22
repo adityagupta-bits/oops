@@ -12,19 +12,24 @@
 
 .conversation-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   padding: 16px 18px 13px;
 }
 
-.conversation-header h3 {
+.conversation-header > div { flex: 1 1 220px; min-width: 0; }
+
+.incident-dialog .incident-conversation .conversation-header h3 {
   margin: 0;
   color: #263449;
   font-size: 16px;
   font-weight: 600;
   line-height: 1.35;
 }
+
+.conversation-header--single { border-bottom: 1px solid #e6ebf2; }
 
 .conversation-header p {
   margin: 4px 0 0;
@@ -35,17 +40,23 @@
 
 .conversation-read-action {
   flex: 0 0 auto;
-  padding: 5px 8px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: #496a84;
+  align-self: flex-start;
+  min-height: 32px;
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid #d5e0e9;
+  border-radius: 6px;
+  background: #fff;
+  color: #365b73;
   font: inherit;
   font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.conversation-read-action:hover:not(:disabled) { background: #f2f6f9; color: #263f57; }
+.conversation-read-action:hover:not(:disabled) { background: #f2f6f9; border-color: #b9cbd9; color: #263f57; }
 .conversation-read-action:focus-visible,
 .conversation-tabs button:focus-visible,
 .conversation-composer button:focus-visible,
@@ -98,17 +109,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-.conversation-student-label {
-  padding: 0 18px 11px;
-  border-bottom: 1px solid #e6ebf2;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 500;
-}
-
 .conversation-panel { min-width: 0; }
 
-.incident-conversation .conversation-messages {
+.incident-dialog .incident-conversation .conversation-messages {
   display: flex;
   flex-direction: column;
   gap: 11px;
@@ -120,6 +123,16 @@
   list-style: none;
   background: #f8fafc;
   overscroll-behavior: contain;
+}
+
+.incident-dialog .incident-conversation .conversation-messages.is-empty {
+  min-height: 108px;
+  justify-content: center;
+}
+
+.incident-conversation .conversation-messages > li {
+  padding: 0;
+  border: 0;
 }
 
 .conversation-message {
@@ -198,7 +211,7 @@
   text-align: right;
 }
 
-.conversation-empty,
+.incident-conversation .conversation-empty,
 .conversation-state,
 .conversation-closed-note {
   margin: auto;
@@ -208,6 +221,15 @@
   line-height: 1.5;
   text-align: center;
 }
+
+.incident-conversation .conversation-empty {
+  display: grid;
+  gap: 3px;
+  padding: 0 12px;
+}
+
+.conversation-empty strong { color: #40536c; font-weight: 600; }
+.conversation-empty span { color: #718096; }
 
 .conversation-state-error { color: #8d3a48; }
 .conversation-state-error p { margin: 0 0 10px; }
@@ -228,12 +250,13 @@
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px 12px;
+  margin-top: 0;
   padding: 12px 16px 13px;
   border-top: 1px solid #e6ebf2;
   background: #fff;
 }
 
-.conversation-composer textarea {
+.incident-conversation .conversation-composer textarea {
   grid-column: 1 / -1;
   display: block;
   width: 100%;
@@ -248,6 +271,7 @@
   font: inherit;
   font-size: 13px;
   line-height: 1.5;
+  margin: 0;
 }
 
 .conversation-composer textarea::placeholder { color: #8794a6; }
@@ -289,7 +313,8 @@
   .conversation-header p { max-width: 40ch; }
   .conversation-tabs { padding: 0 10px; }
   .conversation-tabs button { min-height: 42px; padding: 0 8px; font-size: 12px; }
-  .incident-conversation .conversation-messages { max-height: 280px; min-height: 110px; padding: 13px 11px; }
+  .incident-dialog .incident-conversation .conversation-messages { max-height: 280px; min-height: 110px; padding: 13px 11px; }
+  .incident-dialog .incident-conversation .conversation-messages.is-empty { min-height: 100px; }
   .conversation-message { max-width: 92%; }
   .conversation-composer { padding: 10px 11px 11px; }
 }

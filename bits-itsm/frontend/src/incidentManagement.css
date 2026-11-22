@@ -24,3 +24,42 @@
 .collaborator-member-row .collaborator-remove { flex-shrink: 0; padding: 8px 12px; border: 1px solid var(--bits-line); border-radius: 6px; background: var(--bits-surface); color: #963e49; font-size: 13px; line-height: 1.4; cursor: pointer; }
 .collaborator-member-row .collaborator-remove:hover:not(:disabled) { background: #fff5f5; border-color: #d9aeb4; }
 .collaborator-member-row .collaborator-remove:focus-visible { outline: 2px solid var(--bits-teal-hover); outline-offset: 2px; }
+.incident-management-dialog .collaborator-add { min-height: 38px; margin-top: 12px; padding: 8px 14px; border: 1px solid #24435e; border-radius: 6px; background: #1d3852; color: #fff; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.incident-management-dialog .collaborator-add:hover:not(:disabled) { background: #294a66; border-color: #294a66; }
+.incident-management-dialog .collaborator-add:focus-visible { outline: 2px solid #4c8da5; outline-offset: 2px; }
+.incident-management-dialog .collaborator-add:disabled { border-color: #d8e1e9; background: #eef2f5; color: #607187; opacity: 1; }
+
+/* Technician workload page */
+.technician-workload-toolbar.report-actions { justify-content: flex-end; margin-bottom: 12px !important; }
+.technician-workload-toolbar .report-clear { min-height: 38px; padding: 8px 14px; font-size: 13px; font-weight: 500; }
+.workload-guidance > span { display: block; }
+.workload-guidance > span + span { margin-top: 3px; }
+.technician-workload-page .workload-guidance { max-width: 1100px; margin: 0 0 18px; color: var(--bits-text-muted); font-size: 12px; line-height: 1.55; }
+.technician-workload-page .workload-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 22px; border: 0; }
+.technician-workload-page .workload-summary .dashboard-summary-card { min-height: 96px; padding: 16px 18px; border: 1px solid var(--bits-line); border-radius: 9px; background: var(--bits-surface); }
+.technician-workload-page .workload-summary .dashboard-summary-card:nth-child(3) { border-color: #d8e6ee; background: #f5f9fc; }
+.technician-workload-page .workload-summary h3 { font-size: 12px; font-weight: 500; }
+.technician-workload-page .workload-summary p { margin-top: 8px; font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.workload-mobile-hint { display: none; }
+.technician-workload-table { border-radius: 10px; }
+.technician-workload-table .dashboard-section-heading { padding: 17px 20px; }
+.technician-workload-table .dashboard-section-heading h2 { font-size: 16px; font-weight: 600; }
+.technician-workload-table table { min-width: 880px; }
+.technician-workload-table th { padding: 12px 16px; font-size: 11px; font-weight: 600; letter-spacing: .04em; white-space: nowrap; }
+.technician-workload-table td { padding: 15px 16px; color: var(--bits-text-secondary); font-size: 13px; }
+.technician-workload-table td:first-child { color: var(--bits-navy-900); font-weight: 600; }
+.technician-workload-table td:nth-child(n + 4):nth-child(-n + 7) { font-variant-numeric: tabular-nums; }
+.technician-workload-table .workload-state { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; background: #f1f5f9; color: #52627a; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.technician-workload-table .workload-state::before { width: 6px; height: 6px; border-radius: 50%; background: currentColor; content: ''; }
+.technician-workload-table .workload-state-available { background: #edf7f1; color: #387553; }
+.technician-workload-table .workload-state-busy { background: #fbf5e8; color: #906e29; }
+.technician-workload-table .workload-state-unavailable { background: #f1f3f6; color: #677388; }
+.technician-workload-table .workload-level { color: #52627a; font-weight: 600; }
+.technician-workload-table .workload-level-low { color: #387553; }
+.technician-workload-table .workload-level-high, .technician-workload-table .workload-level-overloaded { color: #a55736; }
+@media (max-width: 640px) {
+  .technician-workload-page .workload-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .technician-workload-page .workload-summary .dashboard-summary-card { min-height: 88px; padding: 13px 14px; }
+  .workload-mobile-hint { display: block; margin: 0 0 8px; color: var(--bits-text-muted); font-size: 12px; }
+  .technician-workload-table .dashboard-section-heading { padding: 15px 16px; }
+}

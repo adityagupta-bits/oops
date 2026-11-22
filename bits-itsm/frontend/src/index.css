@@ -1212,13 +1212,50 @@ form {
   margin-bottom: 20px;
 }
 
-.report-field label {
+.report-field label, .report-field .report-field-label {
   display: block;
   margin-bottom: 8px;
   font-size: 13px;
   font-weight: 600;
   color: var(--bits-navy-900);
 }
+
+.report-problem-picker { min-width: 0; }
+.report-problem-picker summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: .6rem;
+  background: #fff;
+  color: #1b2b4b;
+  line-height: 1.5;
+  cursor: pointer;
+  list-style: none;
+}
+.report-problem-picker summary::-webkit-details-marker { display: none; }
+.report-problem-picker summary:focus-visible { outline: 2px solid #468eac; outline-offset: 2px; }
+.report-problem-picker summary[aria-disabled='true'] { opacity: .55; cursor: not-allowed; }
+.report-problem-picker summary > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.report-problem-chevron { flex: 0 0 auto; width: 9px; height: 9px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); }
+.report-problem-picker[open] .report-problem-chevron { transform: rotate(225deg) translateY(-2px); }
+.report-problem-list {
+  max-height: min(320px, 42vh);
+  margin-top: 6px;
+  padding: 5px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #cbd5e1;
+  border-radius: .6rem;
+  background: #fff;
+}
+.report-problem-group p { margin: 8px 8px 3px; color: #52627a; font-size: 12px; font-weight: 700; }
+.report-problem-option { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 5px; background: transparent; color: #1b2b4b; font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.report-problem-option:hover, .report-problem-option[aria-current='true'] { background: #edf4f8; }
+.report-problem-option:focus-visible { outline: 2px solid #468eac; outline-offset: -2px; }
 
 .report-field input, .report-field select, .report-field textarea {
   display: block;
@@ -2236,6 +2273,53 @@ form {
   line-height: 1.45;
 }
 
+.priority-config-card .matrix-model-box .dashboard-table-scroll {
+  width: min(100%, 560px);
+  border: 1px solid var(--bits-line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.priority-config-card .matrix-model-box table {
+  width: 100%;
+  min-width: 390px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+
+.priority-config-card .matrix-model-box th,
+.priority-config-card .matrix-model-box td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #e8edf2;
+  color: #334155;
+  font-weight: 500;
+  text-align: center;
+}
+
+.priority-config-card .matrix-model-box thead th { background: #f7f9fb; color: #52627a; font-size: 12px; font-weight: 700; }
+.priority-config-card .matrix-model-box thead th:first-child { width: 154px; text-align: left; }
+.priority-config-card .matrix-model-box tbody th { background: #fbfcfe; font-size: 12px; font-weight: 600; }
+.priority-config-card .matrix-model-box tbody tr:last-child th,
+.priority-config-card .matrix-model-box tbody tr:last-child td { border-bottom: 0; }
+.priority-config-card .matrix-model-box td select { width: 100%; max-width: 88px; min-height: 36px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #1b2b4b; font: inherit; font-size: 13px; }
+.priority-config-card .matrix-model-box td select:focus-visible { outline: 2px solid #468eac; outline-offset: 2px; }
+
+.assignment-preview { padding: 20px 24px; }
+.assignment-preview h3 { margin: 0 0 6px; color: var(--bits-navy-900); font-size: 17px; font-weight: 600; line-height: 1.35; }
+.assignment-preview > .report-guidance { margin: 0 0 16px; font-size: 13px; }
+.assignment-preview .report-field { margin-bottom: 0; }
+.assignment-preview-empty { margin: 0; padding: 14px 16px; border: 1px solid #e1e8f0; border-radius: 8px; background: #f8fafc; color: #52627a; font-size: 13px; line-height: 1.5; }
+
+@media (max-width: 600px) {
+  .assignment-preview { padding: 16px; }
+  .priority-config-card .matrix-model-box table { min-width: 0; }
+  .priority-config-card .matrix-model-box thead th:first-child { width: 100px; }
+  .priority-config-card .matrix-model-box th,
+  .priority-config-card .matrix-model-box td { padding: 8px 4px; font-size: 10px; }
+  .priority-config-card .matrix-model-box td select { max-width: 60px; min-height: 34px; padding: 4px; font-size: 12px; }
+}
+
 .preview-calculator-box {
   padding: 20px 24px;
   background: var(--bits-surface-hover);
@@ -2755,6 +2839,14 @@ dialog.bits-modal-overlay::backdrop { background: transparent; }
 .profile-name { font-size: 22px; font-weight: 600; }
 .technician-warning > svg, .text-warning > svg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; }
 .report-form { box-shadow: none; }
+.create-account-form { width: 100%; max-width: 900px; margin: 0 auto 24px; padding: 28px 32px; }
+.create-account-form h2 { margin: 0 0 22px; color: var(--bits-navy-900); font-size: 22px; font-weight: 600; line-height: 1.3; }
+.create-account-form .report-field { margin-bottom: 17px; }
+.create-account-form .report-field label { margin-bottom: 7px; }
+.create-account-form .report-field :is(input, select) { height: 42px; border-radius: 6px; }
+.create-account-form .report-field .report-guidance { margin-top: 6px; }
+.create-account-form .report-actions { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--bits-line); }
+@media (max-width: 600px) { .create-account-form { padding: 20px; } .create-account-form h2 { font-size: 20px; } .create-account-form .report-actions .report-clear { width: auto; } }
 .report-form textarea { min-height: 100px; }
 .conversation-empty, .conversation-state { padding: 24px 16px; font-size: 14px; line-height: 1.6; }
 .notification-empty-state { padding: 24px 16px; color: var(--bits-text-muted); line-height: 1.6; }

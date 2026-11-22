@@ -185,7 +185,11 @@ export default function AdminManagement({ page, onNavigate }) {
       const payload = editing.kind === 'SERVICE' && editing.id && !editing.description?.trim()
         ? { ...editing, description: null } : editing;
       await apiSend('admin/' + path, payload, ['Manage Users', 'IT Services', 'Incident Categories'].includes(page) && !editing.id ? 'POST' : 'PUT');
-      setSuccess(page === 'Manage Users' ? 'Account saved successfully.' : 'Changes saved successfully.');
+      setSuccess(page === 'Manage Users'
+        ? 'Account saved successfully.'
+        : page === 'IT Services'
+          ? (editing.id ? 'Service saved successfully.' : 'Custom service created successfully.')
+          : 'Changes saved successfully.');
       setEditing(null);
       await load();
     } catch (err) {
@@ -636,8 +640,10 @@ export default function AdminManagement({ page, onNavigate }) {
           )}
 
           {editing && page !== 'Classification Review' && (
-            <form className="report-form admin-section" onSubmit={save}>
-              <h2>{editing.id || editing.priority ? 'Edit Saved Record' : 'Create Account'}</h2>
+            <form className={`report-form admin-section ${page === 'Manage Users' && !editing.id ? 'create-account-form' : ''}`} onSubmit={save}>
+              <h2>{page === 'IT Services'
+                ? (editing.id ? 'Edit Service' : 'Create Custom Service')
+                : (editing.id || editing.priority ? 'Edit Saved Record' : 'Create Account')}</h2>
               {page === 'Manage Users' ? (
                 <>
                   <div className="report-field">
@@ -684,6 +690,7 @@ export default function AdminManagement({ page, onNavigate }) {
                           value={editing.password}
                           onChange={(event) => field('password', event.target.value)}
                         />
+                        <p className="report-guidance">Use at least 12 characters.</p>
                       </div>
                       <div className="report-field">
                         <label htmlFor="user-role">Role</label>
@@ -693,7 +700,7 @@ export default function AdminManagement({ page, onNavigate }) {
                           onChange={(event) => field('role', event.target.value)}
                         >
                           {['STUDENT', 'TECHNICIAN', 'ADMIN'].map((role) => (
-                            <option key={role}>{role}</option>
+                            <option key={role} value={role}>{role === 'ADMIN' ? 'Administrator' : readableLabel(role)}</option>
                           ))}
                         </select>
                       </div>
@@ -820,7 +827,7 @@ export default function AdminManagement({ page, onNavigate }) {
               )}
               <div className="report-actions">
                 <button className="submit-button-sm" disabled={busy}>
-                  {busy ? 'Saving…' : 'Save Changes'}
+                  {busy ? 'Saving…' : page === 'IT Services' && !editing.id ? 'Create Custom Service' : 'Save Changes'}
                 </button>
                 <button type="button" className="report-clear" disabled={busy} onClick={() => setEditing(null)}>
                   Cancel

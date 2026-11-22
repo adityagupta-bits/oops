@@ -21,17 +21,17 @@ export default function AssignmentPreview() {
       .catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [id]);
-  return <section className="admin-section">
+  return <section className="admin-section assignment-preview">
     <h3>Preview technician eligibility</h3>
     <p className="report-guidance">Uses the saved strategy and current workload. Previewing does not assign or change an incident.</p>
-    <div className="report-field"><label htmlFor="assignment-preview-incident">Pending incident</label>
+    {incidents.length > 0 && <div className="report-field"><label htmlFor="assignment-preview-incident">Pending incident</label>
       <select id="assignment-preview-incident" value={id} onChange={e => setId(e.target.value)}>
         <option value="">Select an incident</option>
         {incidents.map(i => <option key={i.id} value={i.id}>#{i.id} · {i.title}</option>)}
-      </select></div>
+      </select></div>}
     {loading && <p role="status">Loading eligibility…</p>}
     {error && <p role="alert" className="report-error">{error}</p>}
-    {!loading && !error && !incidents.length && <p>No classified incidents are waiting for assignment.</p>}
+    {!loading && !error && !incidents.length && <p className="assignment-preview-empty">No classified incidents are waiting for assignment. This preview will be available when one needs a technician.</p>}
     {result && <><p>Saved strategy: {result.strategy.replaceAll('_', ' ')} · Required skill: {result.requiredSkill || 'Not established'}</p>
       <div className="dashboard-table-scroll"><table><thead><tr><th>Technician</th><th>Workload</th><th>Eligibility</th></tr></thead><tbody>
         {result.technicians.map(t => <tr key={t.id}><td>{t.name}</td><td>{t.workload} / {t.capacity}</td><td>{t.selected ? 'Selected by strategy' : t.eligible ? 'Eligible' : t.reasons.join(' ')}</td></tr>)}

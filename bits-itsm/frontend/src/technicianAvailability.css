@@ -30,6 +30,24 @@
 .technician-availability-indicator.unavailable i { background: #8b6870; }
 .technician-availability-indicator.unknown i { display: none; }
 .technician-profile-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.technician-account-profile { gap: 18px; }
+.technician-account-profile .dashboard-welcome { margin-bottom: 0; }
+.technician-account-profile .profile-card { padding: 28px 32px; box-shadow: none; }
+.technician-account-profile .profile-header { margin-bottom: 8px; }
+.technician-account-profile .profile-meta { min-width: 0; }
+.technician-account-profile .technician-profile-heading { margin: 0 0 5px; font-size: 19px; font-weight: 600; line-height: 1.35; }
+.technician-account-profile .profile-role { margin: 0; color: var(--bits-text-muted); font-size: 13px; line-height: 1.5; }
+.technician-account-profile .profile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 20px; margin-bottom: 18px; }
+.technician-account-profile .profile-grid > div { padding: 15px 8px; }
+.technician-account-profile .profile-grid > div:nth-child(4) { grid-column: 1 / -1; }
+.technician-account-profile .profile-grid > div:nth-child(n + 5) dd { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.technician-account-profile .profile-security-box { margin-bottom: 20px; padding: 16px 18px; border-color: #e1e8f0; border-radius: 8px; background: #f8fafc; }
+.technician-account-profile .profile-security-box h4 { margin: 0 0 5px; color: var(--bits-navy-900); font-size: 14px; font-weight: 600; }
+.technician-account-profile .profile-security-box .report-guidance { margin: 0; line-height: 1.5; }
+.technician-account-profile .password-settings .incident-view { min-height: 38px; padding: 8px 14px; font-weight: 500; }
+@media (max-width: 700px) { .technician-account-profile .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .technician-account-profile .profile-grid > div:nth-child(4) { grid-column: auto; } }
+@media (max-width: 480px) { .technician-account-profile .profile-card { padding: 20px; } .technician-account-profile .profile-grid { grid-template-columns: minmax(0, 1fr); } }
 @media(max-width:900px) { .tech-availability-options { grid-template-columns: 1fr; }.tech-availability header { align-items: flex-start; flex-direction: column; gap: 8px; }.tech-availability-option { min-height: 68px; }.tech-availability { padding: 18px; } }
 @media(max-width:768px) { .technician-portal .dashboard-user-area { gap: 10px; }.technician-portal .dashboard-profile > div { display: block; } }
+@media(max-width:600px) { .technician-account-profile .profile-header { flex-wrap: nowrap; align-items: flex-start; } }
 @media(max-width:600px) { .technician-portal .dashboard-profile { gap: 8px; }.tech-status-link .technician-availability-indicator { font-size: 10px; }.technician-portal .dashboard-profile strong { font-size: 12px; }.technician-portal .dashboard-profile > div > span { font-size: 10px; } }

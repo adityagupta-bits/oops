@@ -41,6 +41,7 @@ export default function ReportIncident({ onCancel, onOpenIncident, live = false 
     return () => { active = false; };
   }, [live]);
   const inFlight = useRef(false);
+  const problemPickerRef = useRef(null);
   const [selectedProblem, setSelectedProblem] = useState('');
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -113,12 +114,25 @@ export default function ReportIncident({ onCancel, onOpenIncident, live = false 
   }
 
   function clearForm() {
+    if (problemPickerRef.current) problemPickerRef.current.open = false;
     setSelectedProblem('');
     setForm(emptyForm);
     setErrors({});
     setValidated(false);
     setMessage('');
     setSavedIncident(null);
+  }
+
+  function chooseProblem(value) {
+    setSelectedProblem(value);
+    const template = templateDetails.find(t => t.title === value);
+    setForm(previous => applyReportingTemplate(previous, value, template, problemGroups.flatMap(group => group.problems), serviceHints));
+    setErrors(previous => ({ ...previous, title: '' }));
+    setMessage(''); setValidated(false); setSavedIncident(null);
+    if (problemPickerRef.current) {
+      problemPickerRef.current.open = false;
+      problemPickerRef.current.querySelector('summary')?.focus();
+    }
   }
 
   const descLength = form.description.length;
@@ -161,18 +175,30 @@ export default function ReportIncident({ onCancel, onOpenIncident, live = false 
         </div>
         <div className="report-field">
           {reportedScope && <div className="report-field"><label htmlFor="affected-users">How many people are affected? (optional estimate)</label><input id="affected-users" name="affectedUsers" type="number" min="1" max="2147483647" step="1" value={form.affectedUsers} onChange={handleChange} disabled={busy} /><p className="report-guidance">An estimate, not a verified outage count. Describe the observed scope so support can assess impact.</p></div>}
-          <label htmlFor="common-problem">Common Campus IT Problems</label>
-          <select id="common-problem" value={selectedProblem} disabled={busy} onChange={(event) => {
-            const value = event.target.value;
-            setSelectedProblem(value);
-            const template = templateDetails.find(t => t.title === value);
-            setForm(previous => applyReportingTemplate(previous, value, template, problemGroups.flatMap(group => group.problems), serviceHints));
-            setErrors(previous => ({ ...previous, title: '' }));
-            setMessage(''); setValidated(false); setSavedIncident(null);
+          <span className="report-field-label" id="common-problem-label">Common Campus IT Problems</span>
+          <details className="report-problem-picker" ref={problemPickerRef} onToggle={event => {
+            const picker = event.currentTarget;
+            if (picker.open) requestAnimationFrame(() => picker.scrollIntoView({ block: 'end' }));
+          }} onKeyDown={event => {
+            if (event.key === 'Escape' && event.currentTarget.open) {
+              event.currentTarget.open = false;
+              event.currentTarget.querySelector('summary')?.focus();
+            }
+          }} onBlur={event => {
+            if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
           }}>
-            <option value="">Choose a common problem (optional)</option>
-            {problemGroups.map(group => <optgroup key={group.category} label={group.category}>{group.problems.map(title => <option key={title} value={title}>{title}</option>)}</optgroup>)}
-          </select>
+            <summary aria-labelledby="common-problem-label common-problem-value" aria-disabled={busy} tabIndex={busy ? -1 : 0} onClick={busy ? event => event.preventDefault() : undefined}>
+              <span id="common-problem-value">{selectedProblem || 'Choose a common problem (optional)'}</span>
+              <span className="report-problem-chevron" aria-hidden="true" />
+            </summary>
+            <div className="report-problem-list" aria-label="Common campus IT problems">
+              <button type="button" className="report-problem-option" onClick={() => chooseProblem('')} disabled={busy}>No common problem</button>
+              {problemGroups.map(group => <div className="report-problem-group" key={group.category}>
+                <p>{group.category}</p>
+                {group.problems.map(title => <button type="button" key={title} className="report-problem-option" aria-current={selectedProblem === title ? 'true' : undefined} onClick={() => chooseProblem(title)} disabled={busy}>{title}</button>)}
+              </div>)}
+            </div>
+          </details>
           <p className="report-guidance">You can edit the title. Your description is preserved.</p>
         </div>
         <div className="report-field">

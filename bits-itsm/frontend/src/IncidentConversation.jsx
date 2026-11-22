@@ -147,14 +147,14 @@ export default function IncidentConversation({ incidentId, role, initialChannel 
 
   return (
     <section className="student-detail-section incident-conversation" aria-label="Incident communication">
-      <header className="conversation-header">
+      <header className={`conversation-header${staff ? '' : ' conversation-header--single'}`}>
         <div>
           <h3>Communication</h3>
           <p>{staff ? 'Internal chat is visible only to administrators, the assigned technician and collaborators on this incident. Students cannot see internal messages.' : 'Messages are shared with your assigned incident technician.'}</p>
         </div>
         {pendingUnread > 0 && (
           <button type="button" className="conversation-read-action" onClick={markRead} disabled={busy}>
-            Mark {pendingUnread} as read
+            {pendingUnread === 1 ? 'Mark as read' : `Mark ${pendingUnread} as read`}
           </button>
         )}
       </header>
@@ -171,9 +171,7 @@ export default function IncidentConversation({ incidentId, role, initialChannel 
             {(internalConversation?.unreadCount || 0) > 0 && <span className="conversation-unread-count">{internalConversation.unreadCount}</span>}
           </button>
         </div>
-      ) : (
-        <div className="conversation-student-label">Student Conversation</div>
-      )}
+      ) : null}
 
       <div id={panelId} className="conversation-panel" role={staff ? 'tabpanel' : undefined}
         aria-labelledby={staff ? `${activeKey}-tab-${incidentId}` : undefined}>
@@ -185,7 +183,7 @@ export default function IncidentConversation({ incidentId, role, initialChannel 
         ) : loading[activeKey] && !conversation ? (
           <p className="conversation-state" role="status">Loading conversation…</p>
         ) : (
-          <ol className="conversation-messages" aria-label={activeKey === 'internal' ? 'Internal staff messages' : 'Student conversation messages'}>
+          <ol className={`conversation-messages${messages.length === 0 ? ' is-empty' : ''}`} aria-label={activeKey === 'internal' ? 'Internal staff messages' : 'Student conversation messages'}>
             {groupedMessages.map(message => (
               <li key={message.id} className={`conversation-message${message.mine ? ' is-mine' : ''}${message.groupedBefore ? ' is-grouped' : ''}`}>
                 {!message.groupedBefore && (
@@ -204,7 +202,7 @@ export default function IncidentConversation({ incidentId, role, initialChannel 
                 )}
               </li>
             ))}
-            {messages.length === 0 && <li className="conversation-empty">No messages yet. Use the message field below to share an update or ask a question.</li>}
+            {messages.length === 0 && <li className="conversation-empty"><strong>No messages yet</strong><span>Send an update or ask a question below.</span></li>}
           </ol>
         )}
 

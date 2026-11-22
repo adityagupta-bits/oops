@@ -870,7 +870,7 @@ function TechnicianProfile({ technician, availability, availabilityLoading, work
   const initials = technician?.name?.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() || 'TC';
 
   return (
-    <section className="profile-container" aria-labelledby="technician-profile-title">
+    <section className="profile-container technician-account-profile" aria-labelledby="technician-profile-title">
       <div className="dashboard-welcome">
         <div>
           <h2 id="technician-profile-title">Technician Account Profile</h2>
