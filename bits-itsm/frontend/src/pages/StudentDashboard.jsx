@@ -9,6 +9,7 @@ import OperationsDashboard from '../OperationsDashboard.jsx';
 import MyIncidents, { IncidentSummary, incidentStatuses, readableLabel } from '../MyIncidents.jsx';
 import NavIcon from '../components/NavIcon.jsx';
 import Badge from '../components/ui/Badge.jsx';
+import ProfileNote from '../components/ui/ProfileNote.jsx';
 import StatCard from '../components/ui/StatCard.jsx';
 import { demoIncidents as sampleIncidents, users, studentNotifications } from '../demoData.js';
 export default function StudentDashboard({ incidents: allIncidents = sampleIncidents, sessionUser, sessionNotice, onLogout, signingOut = false }) {
@@ -31,7 +32,7 @@ export default function StudentDashboard({ incidents: allIncidents = sampleIncid
 
   return (
     <div className={`student-dashboard${isMenuOpen ? '' : ' menu-collapsed'}`}>
-      <aside className="dashboard-sidebar" id="student-sidebar" hidden={!isMenuOpen}>
+      <aside className="dashboard-sidebar" id="student-sidebar" aria-hidden={!isMenuOpen}>
         <div className="dashboard-brand">
           <div className="brand-logo-mark" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -100,6 +101,12 @@ export default function StudentDashboard({ incidents: allIncidents = sampleIncid
           </p>
         </div>
       </aside>
+
+      <div
+        className={`dashboard-sidebar-backdrop${isMenuOpen ? ' is-open' : ''}`}
+        onClick={() => setIsMenuOpen(false)}
+        aria-hidden="true"
+      />
 
       <div className="dashboard-workspace">
         <header className="dashboard-topbar">
@@ -181,7 +188,7 @@ export default function StudentDashboard({ incidents: allIncidents = sampleIncid
                   }}
                 />
               ) : page === 'profile' ? (
-                <section className="profile-container" aria-labelledby="student-profile-title">
+                <section className="profile-container student-account-profile" aria-labelledby="student-profile-title">
                   <div className="dashboard-welcome">
                     <div>
                       <h2 id="student-profile-title">Account Profile</h2>
@@ -193,9 +200,11 @@ export default function StudentDashboard({ incidents: allIncidents = sampleIncid
                     <div className="profile-header">
                       <span className="profile-avatar-large" aria-hidden="true">{initials}</span>
                       <div className="profile-meta">
-                        <h3>{currentUser.name}</h3>
+                        <div className="profile-identity-row">
+                          <h3>{currentUser.name}</h3>
+                          <span className="profile-account-status"><span aria-hidden="true" />Active</span>
+                        </div>
                         <p className="profile-role">Student · BITS Pilani, Hyderabad Campus</p>
-                        <Badge value="ACTIVE" type="status" />
                       </div>
                     </div>
 
@@ -223,12 +232,9 @@ export default function StudentDashboard({ incidents: allIncidents = sampleIncid
                     </dl>
 
                     {sessionUser?.passwordManagement && <PasswordSettings />}
-                    <div className="profile-security-box">
-                      <h4>Security &amp; Privacy</h4>
-                      <p className="report-guidance">
-                        Your account credentials are valid for campus IT services. If you suspect unauthorized access, contact the IT administration desk immediately.
-                      </p>
-                    </div>
+                    <ProfileNote title="Security & Privacy">
+                      Your account credentials are valid for campus IT services. If you suspect unauthorized access, contact the IT administration desk immediately.
+                    </ProfileNote>
 
                     {sessionUser && (
                       <div className="profile-actions-bar">

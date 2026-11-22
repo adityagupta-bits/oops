@@ -1,14 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import StudentDashboard from './pages/StudentDashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import TechnicianDashboard from './pages/TechnicianDashboard.jsx';
 import { apiRequest, apiPost, onSessionExpired } from './api.js';
 import PasswordSettings from './PasswordSettings.jsx';
+import BackToTop from './components/ui/BackToTop.jsx';
+
+const TextEffect = lazy(() => import('./components/ui/TextEffect.jsx'));
 
 const loginNotice = 'Sign in with your institutional email and password to access campus IT support.';
 
 export default function App() {
-  return <AuthenticatedApp />;
+  return (
+    <>
+      <AuthenticatedApp />
+      <BackToTop />
+    </>
+  );
 }
 
 function AuthenticatedApp() {
@@ -200,8 +208,10 @@ function LoginPage({ onLogin, initialMessage }) {
             YOUR CAMPUS. CONNECTED.
           </span>
           <h1 id="portal-title">
-            Intelligent IT Support<br />
-            <span>for BITS Hyderabad</span>
+            <Suspense fallback={<><span className="text-effect-fallback welcome-heading-primary">Intelligent IT Support</span><br /><span className="text-effect-fallback welcome-heading-accent">for BITS Hyderabad</span></>}>
+              <TextEffect className="welcome-heading-primary" speedReveal={1.2} speedSegment={1.15}>Intelligent IT Support</TextEffect><br />
+              <TextEffect className="welcome-heading-accent" speedReveal={1.2} speedSegment={1.15}>for BITS Hyderabad</TextEffect>
+            </Suspense>
           </h1>
           <p className="description">
             Welcome to your campus support hub. Get help with everyday IT issues, track progress in real time, and stay focused on what matters.

@@ -1,0 +1,26 @@
+.text-effect {
+  display: inline;
+}
+
+.text-effect-fallback {
+  visibility: hidden;
+}
+
+.text-effect-word {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+
+.welcome-content h1 > .welcome-heading-primary {
+  color: #fff;
+}
+
+.welcome-content h1 > .welcome-heading-accent {
+  color: var(--bits-cyan);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-effect-word {
+    will-change: auto;
+  }
+}

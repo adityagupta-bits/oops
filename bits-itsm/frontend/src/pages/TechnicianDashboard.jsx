@@ -12,6 +12,7 @@ import { KnowledgeBase, NotificationCenter, SavedKnowledge } from './TechnicianR
 import { incidentStatuses, readableLabel } from '../MyIncidents.jsx';
 import { apiRequest, apiSend } from '../api.js';
 import Badge from '../components/ui/Badge.jsx';
+import ProfileNote from '../components/ui/ProfileNote.jsx';
 import StatCard from '../components/ui/StatCard.jsx';
 import NavIcon from '../components/NavIcon.jsx';
 import {
@@ -905,12 +906,9 @@ function TechnicianProfile({ technician, availability, availabilityLoading, work
         </dl>
 
         {technician.passwordManagement && <PasswordSettings />}
-        <div className="profile-security-box">
-          <h4>Account Management</h4>
-          <p className="report-guidance">
-            Technician skill tags and maximum workload limits are configured by IT Administrators under Assignment Strategies.
-          </p>
-        </div>
+        <ProfileNote title="Account Management">
+          Technician skill tags and maximum workload limits are configured by IT Administrators under Assignment Strategies.
+        </ProfileNote>
 
         <div className="profile-actions-bar">
           <button
@@ -1168,7 +1166,7 @@ export default function TechnicianDashboard({
 
   return (
     <div className={`student-dashboard technician-portal${isMenuOpen ? '' : ' menu-collapsed'}`}>
-      <aside className="dashboard-sidebar" id="technician-sidebar" hidden={!isMenuOpen}>
+      <aside className="dashboard-sidebar" id="technician-sidebar" aria-hidden={!isMenuOpen}>
         <div className="dashboard-brand">
           <div className="brand-logo-mark" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1204,6 +1202,12 @@ export default function TechnicianDashboard({
           </p>
         </div>
       </aside>
+
+      <div
+        className={`dashboard-sidebar-backdrop${isMenuOpen ? ' is-open' : ''}`}
+        onClick={() => setIsMenuOpen(false)}
+        aria-hidden="true"
+      />
 
       <div className="dashboard-workspace">
         <header className="dashboard-topbar">

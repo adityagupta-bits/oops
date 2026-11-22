@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { apiRequest } from './api.js';
 import IncidentReportsChart from './IncidentReportsChart.jsx';
 import SlaCountdown from './components/SlaCountdown.jsx';
+import Badge from './components/ui/Badge.jsx';
+import NavIcon from './components/NavIcon.jsx';
 import './operationsDashboard.css';
 
 const label = value => String(value || '').toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -52,15 +54,15 @@ export default function OperationsDashboard({ role, onNavigate, availability }) 
   const configured = services.filter(s => s.enabled && s.criticality);
   const unread = (data.notifications || []).filter(n => !n.read).length;
   const metrics = admin ? [
-    ['Open incidents', open.length, 'Across campus', incidentPage, 'incidents'],
-    ['Available technicians', available.length, `${workforce.length} technicians in total`, 'Manage Technicians', 'workforce'],
-    ['Enabled services', configured.length, `${services.length} services in the catalog`, 'IT Services', 'catalog'],
-    ['Active accounts', (data.users || []).filter(u => u.enabled).length, `${(data.users || []).length} accounts in total`, 'Manage Users', 'users'],
+    ['Open incidents', open.length, 'Across campus', incidentPage, 'incidents', 'list'],
+    ['Available technicians', available.length, `${workforce.length} technicians in total`, 'Manage Technicians', 'workforce', 'team'],
+    ['Enabled services', configured.length, `${services.length} services in the catalog`, 'IT Services', 'catalog', 'server'],
+    ['Active accounts', (data.users || []).filter(u => u.enabled).length, `${(data.users || []).length} accounts in total`, 'Manage Users', 'users', 'user'],
   ] : [
-    [tech ? 'Active assignments' : 'Open reports', open.length, tech ? 'Your assigned workload' : 'Your support requests', incidentPage, 'incidents'],
-    ['Awaiting verification', incidents.filter(i => i.status === 'RESOLVED').length, 'Resolution ready for review', incidentPage, 'incidents'],
-    tech ? ['SLA at risk', atRisk.length, `${breaches.length} currently overdue`, incidentPage, 'incidents'] : ['Completed reports', incidents.filter(i => ['VERIFIED', 'CLOSED'].includes(i.status)).length, 'Your verified and closed reports', incidentPage, 'incidents'],
-    ['Unread notifications', unread, 'Updates for your account', notificationsPage, 'notifications'],
+    [tech ? 'Active assignments' : 'Open reports', open.length, tech ? 'Your assigned workload' : 'Your support requests', incidentPage, 'incidents', 'list'],
+    ['Awaiting verification', incidents.filter(i => i.status === 'RESOLVED').length, 'Resolution ready for review', incidentPage, 'incidents', 'review'],
+    tech ? ['SLA at risk', atRisk.length, `${breaches.length} currently overdue`, incidentPage, 'incidents', 'alert'] : ['Completed reports', incidents.filter(i => ['VERIFIED', 'CLOSED'].includes(i.status)).length, 'Your verified and closed reports', incidentPage, 'incidents', 'check'],
+    ['Unread notifications', unread, 'Updates for your account', notificationsPage, 'notifications', 'bell'],
   ];
   const queue = [...open].sort((a, b) => {
     const rank = i => breaches.includes(i) ? 0 : i.priority === 'P1' ? 1 : i.needsClassificationReview ? 2 : 3;
@@ -77,10 +79,10 @@ export default function OperationsDashboard({ role, onNavigate, availability }) 
         <div><span>Ready to review</span><strong>{errors.incidents ? '-' : awaiting.length}</strong></div>
         <div><span>Closed requests</span><strong>{errors.incidents ? '-' : incidents.filter(i => ['VERIFIED','CLOSED'].includes(i.status)).length}</strong></div>
       </div>
-      {awaiting.length > 0 && !errors.incidents && <section className="student-resolution-notice"><div><h3>{awaiting.length === 1 ? 'A resolution is ready for your review' : 'You have resolutions to review'}</h3><p>Check whether the suggested fix worked and let your technician know.</p></div><button type="button" className="report-clear" onClick={() => onNavigate('incidents')}>Review resolutions</button></section>}
+      {awaiting.length > 0 && !errors.incidents && <section className="student-resolution-notice"><div className="student-resolution-body"><span className="student-resolution-icon"><NavIcon name="review" size={17} /></span><div><h3>{awaiting.length === 1 ? 'A resolution is ready for your review' : 'You have resolutions to review'}</h3><p>Check whether the suggested fix worked and let your technician know.</p></div></div><button type="button" className="report-clear" onClick={() => onNavigate('incidents')}>Review resolutions</button></section>}
       <div className="student-support-columns">
         <Panel title="Your recent requests" action={go('incidents')}>
-          {failure('incidents') || (recent.length ? <ul className="student-request-list">{recent.map(i => <li key={i.id}><div><strong>{i.title}</strong><small>Reported {new Date(i.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</small></div><span>{label(i.status)}</span></li>)}</ul> : <p className="ops-empty">No requests yet. Report a problem when you need help with campus IT.</p>)}
+          {failure('incidents') || (recent.length ? <ul className="student-request-list">{recent.map(i => <li key={i.id}><div><strong>{i.title}</strong><small>Reported {new Date(i.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</small></div><Badge status={i.status} /></li>)}</ul> : <p className="ops-empty">No requests yet. Report a problem when you need help with campus IT.</p>)}
         </Panel>
         <Panel title="Support updates" action={go('notifications')}>
           {failure('notifications') || ((data.notifications || []).length ? <div className="ops-updates">{[...data.notifications].sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp)).slice(0,4).map(n => <button type="button" key={n.id} onClick={() => onNavigate('notifications')}><i className={`ops-dot ${n.read ? '' : 'ops-dot-blue'}`} /><div><strong>{n.incidentTitle || n.title}</strong><small>{n.title}</small></div></button>)}</div> : <p className="ops-empty">Updates from your support team will appear here.</p>)}
@@ -92,11 +94,11 @@ export default function OperationsDashboard({ role, onNavigate, availability }) 
   }
   return <div className="ops-dashboard">
     <header className="ops-heading"><div><span className="ops-eyebrow">{admin ? 'CAMPUS OPERATIONS' : tech ? 'YOUR WORKSPACE' : 'CAMPUS IT SUPPORT'}</span><h2>{admin ? 'Support overview' : tech ? 'Your support workspace' : 'Your support overview'}</h2><p>{admin ? 'Service readiness, team capacity and the work that needs attention.' : tech ? 'Your assignments, deadlines and team requests in one place.' : 'Track your requests, support updates and next steps.'}</p></div><div className="ops-header-actions"><div className="ops-refresh"><button type="button" onClick={() => setRefresh(n => n + 1)}>Refresh overview</button><small>Updated {updated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></div></div></header>
-    <div className="ops-metrics">{metrics.map(([title, count, detail, page, source]) => <button type="button" className="ops-metric" key={title} onClick={() => onNavigate(page)}><span>{title}</span><strong>{errors[source] ? '—' : count}</strong><small>{errors[source] ? 'Data unavailable' : detail}</small><span className="ops-metric-arrow" aria-hidden="true">↗</span></button>)}</div>
+    <div className="ops-metrics">{metrics.map(([title, count, detail, page, source, icon]) => <button type="button" className="ops-metric" key={title} onClick={() => onNavigate(page)}><span className="ops-metric-heading"><span className="ops-metric-icon"><NavIcon name={icon} size={16} /></span><span>{title}</span></span><strong>{errors[source] ? '—' : count}</strong><small>{errors[source] ? 'Data unavailable' : detail}</small><span className="ops-metric-arrow" aria-hidden="true">↗</span></button>)}</div>
     <div className={`ops-main-grid${admin || tech ? '' : ' ops-main-grid--single'}`}>
       <div className="ops-trend">{failure('incidents') || <IncidentReportsChart incidents={incidents} role={role} />}</div>
-      {(admin || tech) && <Panel title="Needs attention" className="ops-attention">
-        {failure('incidents') || <><button onClick={() => onNavigate(incidentPage)}><span><i className="ops-dot ops-dot-red" />SLA breached</span><strong>{breaches.length}</strong></button><button onClick={() => onNavigate(incidentPage)}><span><i className="ops-dot ops-dot-amber" />SLA at risk</span><strong>{atRisk.length}</strong></button><button onClick={() => onNavigate(admin ? 'Classification Review' : incidentPage)}><span>Classification review</span><strong>{open.filter(i => i.needsClassificationReview).length}</strong></button><button onClick={() => onNavigate(incidentPage)}><span>Pending assignment</span><strong>{open.filter(i => i.status === 'CLASSIFIED' && !i.assignedTechnician).length}</strong></button><button onClick={() => onNavigate(incidentPage)}><span>Critical priority · P1</span><strong>{open.filter(i => i.priority === 'P1').length}</strong></button></>}
+      {(admin || tech) && <Panel title="Needs attention" className="ops-attention" action={!errors.incidents && breaches.length + atRisk.length > 0 ? <span className="ops-attention-status"><i className="ops-dot ops-dot-amber" />{breaches.length + atRisk.length} active</span> : null}>
+        {failure('incidents') || <><button className={breaches.length ? 'ops-attention-critical' : ''} onClick={() => onNavigate(incidentPage)}><span><i className="ops-dot ops-dot-red" />SLA breached</span><strong>{breaches.length}</strong></button><button className={atRisk.length ? 'ops-attention-warning' : ''} onClick={() => onNavigate(incidentPage)}><span><i className="ops-dot ops-dot-amber" />SLA at risk</span><strong>{atRisk.length}</strong></button><button onClick={() => onNavigate(admin ? 'Classification Review' : incidentPage)}><span>Classification review</span><strong>{open.filter(i => i.needsClassificationReview).length}</strong></button><button onClick={() => onNavigate(incidentPage)}><span>Pending assignment</span><strong>{open.filter(i => i.status === 'CLASSIFIED' && !i.assignedTechnician).length}</strong></button><button onClick={() => onNavigate(incidentPage)}><span>Critical priority · P1</span><strong>{open.filter(i => i.priority === 'P1').length}</strong></button></>}
         {admin && (failure('escalations') || <button onClick={() => onNavigate('Escalations')}><span>Recorded escalations</span><strong>{(data.escalations || []).length}</strong></button>)}
       </Panel>}
     </div>

@@ -9,6 +9,7 @@ import OperationsDashboard from '../OperationsDashboard.jsx';
 import AssignmentManagement from '../AssignmentManagement.jsx';
 import { incidentStatuses, readableLabel } from '../MyIncidents.jsx';
 import Badge from '../components/ui/Badge.jsx';
+import ProfileNote from '../components/ui/ProfileNote.jsx';
 import StatCard from '../components/ui/StatCard.jsx';
 import NavIcon from '../components/NavIcon.jsx';
 import {
@@ -972,7 +973,7 @@ export default function AdminDashboard({ sessionUser, sessionNotice, onLogout, s
       break;
     case 'Profile':
       content = (
-        <section className="profile-container" aria-labelledby="admin-profile-title">
+        <section className="profile-container admin-account-profile" aria-labelledby="admin-profile-title">
           <div className="dashboard-welcome">
             <div>
               <h2 id="admin-profile-title">Administrator Account Profile</h2>
@@ -983,9 +984,11 @@ export default function AdminDashboard({ sessionUser, sessionNotice, onLogout, s
             <div className="profile-header">
               <span className="profile-avatar-large" aria-hidden="true">{initials}</span>
               <div className="profile-meta">
-                <h3>{admin.name}</h3>
+                <div className="profile-identity-row">
+                  <h3>{admin.name}</h3>
+                  <span className="profile-account-status"><span aria-hidden="true" />Active</span>
+                </div>
                 <p className="profile-role">System Administrator · BITS Pilani, Hyderabad Campus</p>
-                <AdminBadge value="ACTIVE" />
               </div>
             </div>
             <dl className="incident-details profile-grid">
@@ -994,7 +997,7 @@ export default function AdminDashboard({ sessionUser, sessionNotice, onLogout, s
                 ['Institutional Email', admin.email],
                 ['Administrative Role', sessionUser ? 'ADMIN' : 'ADMIN (Demo)'],
                 ['Campus', 'BITS Pilani, Hyderabad Campus'],
-                ['Access Scope', 'Full IT Operations &amp; Configuration'],
+                ['Access Scope', 'Full IT Operations & Configuration'],
               ].map(([label, value]) => (
                 <div key={label}>
                   <dt>{label}</dt>
@@ -1003,12 +1006,9 @@ export default function AdminDashboard({ sessionUser, sessionNotice, onLogout, s
               ))}
             </dl>
             {sessionUser?.passwordManagement && <PasswordSettings />}
-            <div className="profile-security-box">
-              <h4>System Security &amp; Audit</h4>
-              <p className="report-guidance">
-                All administrative configuration changes, reclassifications, and policy updates are permanently audited in the PostgreSQL audit log.
-              </p>
-            </div>
+            <ProfileNote title="System Security & Audit">
+              All administrative configuration changes, reclassifications, and policy updates are permanently audited in the PostgreSQL audit log.
+            </ProfileNote>
             {sessionUser && (
               <div className="profile-actions-bar">
                 <button className="danger-button" type="button" disabled={signingOut} onClick={onLogout}>
@@ -1075,7 +1075,7 @@ export default function AdminDashboard({ sessionUser, sessionNotice, onLogout, s
 
   return (
     <div className={`student-dashboard admin-portal${isMenuOpen ? '' : ' menu-collapsed'}`}>
-      <aside className="dashboard-sidebar" id="admin-sidebar" hidden={!isMenuOpen}>
+      <aside className="dashboard-sidebar" id="admin-sidebar" aria-hidden={!isMenuOpen}>
         <div className="dashboard-brand">
           <div className="brand-logo-mark" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1116,6 +1116,12 @@ export default function AdminDashboard({ sessionUser, sessionNotice, onLogout, s
           </p>
         </div>
       </aside>
+
+      <div
+        className={`dashboard-sidebar-backdrop${isMenuOpen ? ' is-open' : ''}`}
+        onClick={() => setIsMenuOpen(false)}
+        aria-hidden="true"
+      />
 
       <div className="dashboard-workspace">
         <header className="dashboard-topbar">

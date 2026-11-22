@@ -12,7 +12,21 @@
 .refined-form :is(input,select,textarea):focus-visible, .password-help-link:focus-visible { outline: 2px solid var(--bits-accent, #42768c); outline-offset: 3px; }
 .form-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 .form-buttons .incident-view { padding: 10px 14px; font-size: 14px; border-radius: 7px; }
+.refined-form .form-buttons .reset-password-submit { border-color: var(--bits-navy-800); background: var(--bits-navy-800); color: #fff; }
+.refined-form .form-buttons .reset-password-submit:hover { background: var(--bits-navy-900); border-color: var(--bits-navy-900); }
 .reset-instructions { display: grid; gap: 14px; padding-left: 22px; margin: 20px 0; font-size: 14px; line-height: 1.65; }
 .account-form-dialog .form-hint { margin-bottom: 20px; }
 .refined-form .report-error { color: #963e49; }
+.reset-code-field { display: grid; gap: 7px; }
+.reset-code-field > label { font-size: 14px; font-weight: 600; color: var(--bits-navy-900); }
+.reset-code-control { position: relative; }
+.refined-form .reset-code-control input { padding-right: 66px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; letter-spacing: .02em; }
+.reset-code-control button { position: absolute; top: 50%; right: 5px; transform: translateY(-50%); min-height: 34px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; color: var(--bits-navy-700); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.reset-code-control button:hover { background: var(--bits-surface-hover); }
+.reset-code-control button:focus-visible { outline: 2px solid var(--bits-accent, #42768c); outline-offset: 1px; }
+.reset-code-control button:disabled { cursor: not-allowed; opacity: .55; }
+.reset-code-field .reset-code-hint, .reset-code-field .reset-code-error { margin: 0; font-size: 12px; line-height: 1.5; }
+.reset-code-field .reset-code-hint { color: var(--bits-text-muted, #64748b); }
+.reset-code-field .reset-code-error { color: #963e49; }
+.refined-form .reset-code-control input[aria-invalid="true"] { border-color: #be6670; }
 @media (max-width: 480px) { .account-form-dialog .bits-modal-body { padding: 18px; } .form-buttons { justify-content: stretch; } .form-buttons > button { flex: 1; } }
