@@ -1,0 +1,18 @@
+.bits-modal-content.incident-management-dialog { width: min(680px, calc(100vw - 32px)); border-radius: 10px; color: #263449; }
+.incident-management-dialog .bits-modal-header { padding: 16px 20px; }
+.incident-management-dialog .bits-modal-title { font-size: 18px; font-weight: 600; }
+.incident-management-dialog .bits-modal-body { padding: 18px 20px; font-size: 14px; max-height: 75vh; overflow-y: auto; }
+.incident-management-dialog .bits-modal-body > p { margin: 0 0 18px; color: #64748b; line-height: 1.5; }
+.incident-management-dialog form { display: grid; gap: 12px; padding: 0; margin: 0; border: 0; box-shadow: none; background: transparent; }
+.incident-management-dialog form h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.incident-management-dialog form p { margin: 0; line-height: 1.5; color: #64748b; font-size: 13px; }
+.incident-management-dialog label { display: grid; gap: 7px; font-size: 13px; font-weight: 500; }
+.incident-management-dialog select, .incident-management-dialog textarea { display: block; width: 100%; box-sizing: border-box; border: 1px solid #d5dee8; border-radius: 6px; padding: 9px 11px; font: inherit; line-height: 1.5; color: #263449; background: white; }
+.incident-management-dialog textarea { min-height: 90px; resize: vertical; }
+.incident-management-dialog .report-actions { margin: 4px 0 0; gap: 8px; }
+.incident-management-dialog button { font-family: inherit; }
+.incident-management-dialog .report-actions button { padding: 8px 12px; border: 1px solid #d5dee8; border-radius: 6px; background: white; color: #34566f; font-size: 13px; }
+.incident-management-dialog button:disabled { opacity: .55; cursor: not-allowed; }
+.incident-management-dialog .incident-conversation { padding: 0; margin: 0; }
+.incident-management-dialog .conversation-state { padding: 22px 12px; }
+.incident-management-dialog [role='alert'] { color: #963e49; }

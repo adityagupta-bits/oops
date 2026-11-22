@@ -76,6 +76,7 @@ public class SlaCalculator {
 
     /** Overall SLA status of one incident at the given time. A deadline is missed only when passed strictly. */
     public SlaStatus evaluate(IncidentSnapshot i, Instant now) {
+        if (i.status() == com.bits.itsm.incident.IncidentStatus.CLOSED && i.resolvedAt() == null) return SlaStatus.NOT_APPLICABLE;
         Instant created = i.createdAt();
         Instant responseDl = responseDeadline(i);
         Instant resolutionDl = resolutionDeadline(i);

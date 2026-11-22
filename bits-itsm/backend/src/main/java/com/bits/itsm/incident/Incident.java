@@ -12,26 +12,59 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "incidents")
 public class Incident {
-    public enum Category { HARDWARE, SOFTWARE, NETWORK, DATABASE, CLOUD, SECURITY, AUTHENTICATION, APPLICATION, STORAGE, OTHER }
+    public record Category(String code) {
+        public Category { new ServiceCode(code); }
+        public static final Category HARDWARE=new Category("HARDWARE"), SOFTWARE=new Category("SOFTWARE"), NETWORK=new Category("NETWORK"), DATABASE=new Category("DATABASE"), CLOUD=new Category("CLOUD"), SECURITY=new Category("SECURITY"), AUTHENTICATION=new Category("AUTHENTICATION"), APPLICATION=new Category("APPLICATION"), STORAGE=new Category("STORAGE"), OTHER=new Category("OTHER");
+        @com.fasterxml.jackson.annotation.JsonCreator public static Category valueOf(String code) { return new Category(code); }
+        @com.fasterxml.jackson.annotation.JsonValue public String name() { return code; }
+        public static Category[] values() { return new Category[]{HARDWARE,SOFTWARE,NETWORK,DATABASE,CLOUD,SECURITY,AUTHENTICATION,APPLICATION,STORAGE,OTHER}; }
+    }
+    @Converter public static class CategoryConverter implements AttributeConverter<Category,String> {
+        public String convertToDatabaseColumn(Category value) { return value==null?null:value.name(); }
+        public Category convertToEntityAttribute(String value) { return value==null?null:Category.valueOf(value); }
+    }
     public enum Level { LOW, MEDIUM, HIGH }
     public enum Priority { PENDING, P1, P2, P3, P4 }
-    public enum ItService {
-        CAMPUS_WIFI("Campus Wi-Fi"), STUDENT_PORTAL("Student Portal"), LIBRARY("Library Services"),
-        LAB_COMPUTERS("Lab Computers"), EMAIL("Email Services"), CAMPUS_NETWORK("Campus Network"),
-        AUTHENTICATION("Authentication Service"), OTHER("Other");
-        private final String label;
-        ItService(String label) { this.label = label; }
-        public String getLabel() { return label; }
+    public record ItService(String code) {
+        public ItService { new ServiceCode(code); }
+        public static final ItService CAMPUS_WIFI = new ItService("CAMPUS_WIFI"), STUDENT_PORTAL = new ItService("STUDENT_PORTAL"), LIBRARY = new ItService("LIBRARY"), LAB_COMPUTERS = new ItService("LAB_COMPUTERS"), EMAIL = new ItService("EMAIL"), CAMPUS_NETWORK = new ItService("CAMPUS_NETWORK"), AUTHENTICATION = new ItService("AUTHENTICATION"), OTHER = new ItService("OTHER");
+        @com.fasterxml.jackson.annotation.JsonCreator public static ItService valueOf(String code) { return new ItService(code); }
+        @com.fasterxml.jackson.annotation.JsonValue public String name() { return code; }
+        public static ItService[] values() { return new ItService[]{CAMPUS_WIFI,STUDENT_PORTAL,LIBRARY,LAB_COMPUTERS,EMAIL,CAMPUS_NETWORK,AUTHENTICATION,OTHER}; }
+        public String getLabel() { return switch(code) { case "CAMPUS_WIFI" -> "Campus Wi-Fi"; case "STUDENT_PORTAL" -> "Student Portal"; case "LIBRARY" -> "Library Services"; case "LAB_COMPUTERS" -> "Lab Computers"; case "EMAIL" -> "Email Services"; case "CAMPUS_NETWORK" -> "Campus Network"; case "AUTHENTICATION" -> "Authentication Service"; case "OTHER" -> "Other"; default -> code; }; }
     }
-
+    @Converter
+    public static class ServiceConverter implements AttributeConverter<ItService,String> {
+        public String convertToDatabaseColumn(ItService value) { return value == null ? null : value.name(); }
+        public ItService convertToEntityAttribute(String value) { return value == null ? null : ItService.valueOf(value); }
+    }
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @Column(nullable = false, length = 100) private String title;
     @Column(nullable = false, length = 2000) private String description;
     @ManyToOne(fetch = FetchType.LAZY, optional = false) private Student reporter;
-    @Enumerated(EnumType.STRING) private Category category;
-    @Enumerated(EnumType.STRING) private ItService affectedService;
+    @Convert(converter=CategoryConverter.class) private Category category;
+    @Convert(converter=ServiceConverter.class) private ItService affectedService;
     @Enumerated(EnumType.STRING) private Level impact;
     @Enumerated(EnumType.STRING) private Level urgency;
+    @Convert(converter=CategoryConverter.class) private Category reportedCategory;
+    @Enumerated(EnumType.STRING) private TechnicianSkill classifiedSkill;
+    public void captureClassifiedSkill(TechnicianSkill skill) { classifiedSkill=skill; }
+    @Enumerated(EnumType.STRING) private Level reportedUrgency;
+    @Convert(converter = ServiceConverter.class) @Column(length = 50) private ItService reportedService;
+    public ItService getReportedService() { return reportedService; }
+    public void captureServiceHint(ItService service) { reportedService = service; }
+    private Integer reportedAffectedUsers;
+    public Integer getReportedAffectedUsers() { return reportedAffectedUsers; }
+    public void captureReportedAffectedUsers(Integer count) {
+        if(count!=null && count<1) throw new IllegalArgumentException("Affected people must be a positive number.");
+        reportedAffectedUsers=count;
+    }
+    public void captureReportedContext(Category category, Level urgency) {
+        reportedCategory = java.util.Objects.requireNonNull(category, "Select an incident category.");
+        reportedUrgency = urgency;
+    }
+    public Category getReportedCategory() { return reportedCategory; }
+    public Level getReportedUrgency() { return reportedUrgency; }
     @Enumerated(EnumType.STRING) @Column(nullable = false) private Priority priority = Priority.PENDING;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private IncidentStatus status = IncidentStatus.NEW;
     @ManyToOne(fetch = FetchType.LAZY) private Technician assignedTechnician;
@@ -55,7 +88,7 @@ public class Incident {
     @OneToMany(mappedBy = "incident", cascade = CascadeType.PERSIST) @OrderBy("createdAt ASC, id ASC")
     private List<IncidentHistory> history = new ArrayList<>();
     @OneToOne(mappedBy = "incident", cascade = CascadeType.PERSIST) private IncidentFeedback feedback;
-    @OneToMany(mappedBy = "incident", cascade = CascadeType.PERSIST)
+    @OneToMany(mappedBy = "incident", cascade = CascadeType.PERSIST, orphanRemoval = true)
     private List<IncidentCollaborator> collaborators = new ArrayList<>();
 
     @Column(nullable = false) private boolean needsClassificationReview = false;
@@ -150,8 +183,8 @@ public class Incident {
     }
     public Instant getResponseDeadline() { return responseDeadline; }
     public Instant getResolutionDeadline() { return resolutionDeadline; }
-    public SlaClock.Status responseSla(Instant now) { return responseDeadline == null ? null : SlaClock.status(responseDeadline, responseTargetMinutes, acknowledgedAt, now); }
-    public SlaClock.Status resolutionSla(Instant now) { return resolutionDeadline == null ? null : SlaClock.status(resolutionDeadline, resolutionTargetMinutes, resolvedAt, now); }
+    public SlaClock.Status responseSla(Instant now) { return responseDeadline == null || (status == IncidentStatus.CLOSED && resolvedAt == null) ? null : SlaClock.status(responseDeadline, responseTargetMinutes, acknowledgedAt, now); }
+    public SlaClock.Status resolutionSla(Instant now) { return resolutionDeadline == null || (status == IncidentStatus.CLOSED && resolvedAt == null) ? null : SlaClock.status(resolutionDeadline, resolutionTargetMinutes, resolvedAt, now); }
     public void assign(Technician technician) {
         require(IncidentStatus.CLASSIFIED);
         if (!technician.isEnabled() || !technician.isAvailable()) throw new IllegalStateException("Technician is disabled or unavailable.");
@@ -176,19 +209,27 @@ public class Incident {
         if (participates(technician.getId())) throw new IllegalStateException("Technician already participates in this incident.");
         collaborators.add(new IncidentCollaborator(this, technician, responsibility)); updatedAt = Instant.now();
     }
+    public void removeCollaborator(Long technicianId) {
+        requireAssignableTeam();
+        if(!collaborators.removeIf(c -> c.getTechnician().getId().equals(technicianId))) throw new IllegalArgumentException("Collaborator not found.");
+        updatedAt=Instant.now();
+    }
     public TechnicianSkill requiredSkill() {
+        if (classifiedSkill != null) return classifiedSkill;
         if (category == null) return null;
-        return category == Category.OTHER ? null : category == Category.APPLICATION ? TechnicianSkill.APPLICATION_SUPPORT : TechnicianSkill.valueOf(category.name());
+        if (category.equals(Category.OTHER)) return null;
+        if (category.equals(Category.APPLICATION)) return TechnicianSkill.APPLICATION_SUPPORT;
+        try { return TechnicianSkill.valueOf(category.name()); } catch (IllegalArgumentException customCategory) { return null; }
     }
     public TechnicianSkill preferredSkill() {
         if (requiredSkill() != null) return requiredSkill();
         if (affectedService == null) return null;
-        return switch (affectedService) {
-            case CAMPUS_WIFI, CAMPUS_NETWORK -> TechnicianSkill.NETWORK;
-            case LAB_COMPUTERS -> TechnicianSkill.HARDWARE;
-            case AUTHENTICATION -> TechnicianSkill.AUTHENTICATION;
-            case STUDENT_PORTAL, LIBRARY, EMAIL -> TechnicianSkill.APPLICATION_SUPPORT;
-            case OTHER -> null;
+        return switch (affectedService.name()) {
+            case "CAMPUS_WIFI", "CAMPUS_NETWORK" -> TechnicianSkill.NETWORK;
+            case "LAB_COMPUTERS" -> TechnicianSkill.HARDWARE;
+            case "AUTHENTICATION" -> TechnicianSkill.AUTHENTICATION;
+            case "STUDENT_PORTAL", "LIBRARY", "EMAIL" -> TechnicianSkill.APPLICATION_SUPPORT;
+            default -> null;
         };
     }
     public void start() { require(IncidentStatus.ACKNOWLEDGED); move(IncidentStatus.IN_PROGRESS); }
@@ -208,17 +249,43 @@ public class Incident {
         resolutionSummary = null; resolutionSteps = null; resolvedAt = null;
     }
     public void close() { require(IncidentStatus.VERIFIED); move(IncidentStatus.CLOSED); closedAt = updatedAt; }
+    public void closeWithoutResolution(boolean withdrawal) {
+        if (withdrawal) require(IncidentStatus.NEW);
+        if (status == IncidentStatus.RESOLVED || status == IncidentStatus.VERIFIED || status == IncidentStatus.CLOSED)
+            throw new IllegalStateException("Only an active report can be withdrawn or closed without resolution.");
+        move(IncidentStatus.CLOSED); closedAt = updatedAt; needsClassificationReview = false;
+    }
+    public boolean isAwaitingStudent() {
+        if (status != IncidentStatus.IN_PROGRESS) return false;
+        Instant requested = history.stream().filter(h -> h.getAction().equals("INFORMATION_REQUESTED"))
+                .map(IncidentHistory::getCreatedAt).max(Instant::compareTo).orElse(Instant.MIN);
+        Instant answered = history.stream().filter(h -> h.getAction().equals("STUDENT_REPLIED") || h.getAction().equals("RESUMED_WITHOUT_REPLY"))
+                .map(IncidentHistory::getCreatedAt).max(Instant::compareTo).orElse(Instant.MIN);
+        return requested.isAfter(answered);
+    }
+    public void overridePriority(Priority next) {
+        if (next==null || next==Priority.PENDING) throw new IllegalArgumentException("Choose priority P1–P4.");
+        if (priority==Priority.PENDING || status==IncidentStatus.NEW || status==IncidentStatus.RESOLVED || status==IncidentStatus.VERIFIED || status==IncidentStatus.CLOSED)
+            throw new IllegalStateException("Priority overrides require an active, classified incident.");
+        priority=next; updatedAt=Instant.now();
+    }
     public void require(IncidentStatus expected) {
         if (status != expected) throw new IllegalStateException("This action requires " + expected + "; current status is " + status + ".");
     }
     private void move(IncidentStatus next) { status = next; updatedAt = Instant.now(); }
     public void addNote(User author, String content, InvestigationNote.Visibility visibility, InvestigationNote.Kind kind) {
-        notes.add(new InvestigationNote(this, author, content, visibility, kind)); updatedAt = Instant.now();
+        addNote(author, content, visibility, kind, false);
+    }
+    public void addNote(User author, String content, InvestigationNote.Visibility visibility, InvestigationNote.Kind kind, boolean urgent) {
+        if (urgent && (visibility != InvestigationNote.Visibility.INTERNAL || kind != InvestigationNote.Kind.MESSAGE))
+            throw new IllegalArgumentException("Only internal staff messages may be marked urgent.");
+        notes.add(new InvestigationNote(this, author, content, visibility, kind, urgent)); updatedAt = Instant.now();
     }
     public void record(User actor, String action, String description, InvestigationNote.Visibility visibility) {
         history.add(new IncidentHistory(this, actor, action, description, visibility));
     }
     public void giveFeedback(Student student, int rating, String comment) {
+        if (resolvedAt == null) throw new IllegalStateException("Feedback requires a resolved incident.");
         if (status != IncidentStatus.VERIFIED && status != IncidentStatus.CLOSED) throw new IllegalStateException("Verify the resolution before submitting feedback.");
         if (feedback != null) throw new IllegalStateException("Feedback has already been submitted.");
         feedback = new IncidentFeedback(this, student, rating, comment); updatedAt = Instant.now();

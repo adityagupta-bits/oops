@@ -1,0 +1,221 @@
+/* Administrator All Incidents table refinement. Kept local to this page. */
+.dashboard-incidents--all {
+  --incident-ink: #263449;
+  --incident-secondary: #64748b;
+  --incident-muted: #64748b;
+  --incident-line: #e6ebf2;
+  overflow: hidden;
+}
+
+.dashboard-incidents--all .dashboard-section-heading h2 {
+  color: var(--incident-ink);
+  font-weight: 600;
+  letter-spacing: -0.15px;
+}
+
+.dashboard-incidents--all .all-incidents-table-scroll {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: thin;
+}
+
+.dashboard-incidents--all .all-incidents-table-scroll:focus-visible {
+  outline: 2px solid #5b8dab;
+  outline-offset: -2px;
+}
+
+.dashboard-incidents--all .all-incidents-table {
+  width: 100%;
+  min-width: 1080px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--incident-ink);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.dashboard-incidents--all .all-incidents-table th {
+  padding: 11px 13px;
+  background: #fbfcfe;
+  border-bottom: 1px solid var(--incident-line);
+  color: var(--incident-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.dashboard-incidents--all .all-incidents-table td {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--incident-line);
+  color: var(--incident-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  vertical-align: middle;
+}
+
+.dashboard-incidents--all .all-incidents-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dashboard-incidents--all .all-incidents-table tbody tr:hover td {
+  background: #f9fbfd;
+}
+
+.dashboard-incidents--all .all-incidents-table .dashboard-incident-id {
+  color: var(--incident-muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dashboard-incidents--all .all-incidents-table .dashboard-incident-title {
+  color: var(--incident-ink);
+  font-weight: 500;
+  overflow-wrap: break-word;
+}
+
+.dashboard-incidents--all .all-incidents-table .dashboard-incident-title strong {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 550;
+  line-height: 1.4;
+}
+
+.dashboard-incidents--all .all-incidents-table td:nth-child(3),
+.dashboard-incidents--all .all-incidents-table td:nth-child(7),
+.dashboard-incidents--all .all-incidents-table td:nth-child(8) {
+  white-space: nowrap;
+}
+
+.dashboard-incidents--all .all-incidents-table time {
+  color: var(--incident-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.dashboard-incidents--all .all-incidents-table .sla-countdown {
+  color: var(--incident-secondary);
+  display: inline-block;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: normal;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-incidents--all .all-incidents-table .sla-countdown-overdue {
+  color: #9a4652;
+  font-weight: 550;
+}
+
+.dashboard-incidents--all .all-incidents-table .bits-badge {
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.dashboard-incidents--all .all-incidents-table .badge-p1 {
+  background: #fff0f1;
+  color: #8d2639;
+}
+.dashboard-incidents--all .all-incidents-table .badge-p1 .badge-dot { background: #bd5364; }
+
+.dashboard-incidents--all .all-incidents-table .badge-p2 {
+  background: #fff6e2;
+  color: #735010;
+}
+.dashboard-incidents--all .all-incidents-table .badge-p2 .badge-dot { background: #b28535; }
+
+.dashboard-incidents--all .all-incidents-table .badge-p3 {
+  background: #edf5fa;
+  color: #285b75;
+}
+.dashboard-incidents--all .all-incidents-table .badge-p3 .badge-dot { background: #5c8da7; }
+
+.dashboard-incidents--all .all-incidents-table .badge-p4,
+.dashboard-incidents--all .all-incidents-table .badge-pending {
+  background: #f1f4f7;
+  color: #48586d;
+  font-style: normal;
+}
+.dashboard-incidents--all .all-incidents-table .badge-p4 .badge-dot,
+.dashboard-incidents--all .all-incidents-table .badge-pending .badge-dot { background: #8290a2; }
+
+.dashboard-incidents--all .all-incidents-table .badge-new {
+  background: #edf5fb;
+  color: #315f7e;
+}
+.dashboard-incidents--all .all-incidents-table .badge-new .badge-dot { background: #5686aa; }
+
+.dashboard-incidents--all .all-incidents-table .badge-classified {
+  background: #f2f0fa;
+  color: #574d7c;
+}
+.dashboard-incidents--all .all-incidents-table .badge-classified .badge-dot { background: #8176a8; }
+
+.dashboard-incidents--all .all-incidents-table .badge-assigned {
+  background: #edf3f9;
+  color: #315574;
+}
+.dashboard-incidents--all .all-incidents-table .badge-assigned .badge-dot { background: #6485a4; }
+
+.dashboard-incidents--all .all-incidents-table .badge-acknowledged,
+.dashboard-incidents--all .all-incidents-table .badge-in-progress {
+  background: #fbf5e8;
+  color: #765c2a;
+}
+.dashboard-incidents--all .all-incidents-table .badge-acknowledged .badge-dot,
+.dashboard-incidents--all .all-incidents-table .badge-in-progress .badge-dot { background: #ad8a4b; }
+
+.dashboard-incidents--all .all-incidents-table .badge-awaiting-info {
+  background: #fbf0e9;
+  color: #854c2c;
+}
+.dashboard-incidents--all .all-incidents-table .badge-awaiting-info .badge-dot { background: #b17a56; }
+
+.dashboard-incidents--all .all-incidents-table .badge-resolved,
+.dashboard-incidents--all .all-incidents-table .badge-verified {
+  background: #eef6f0;
+  color: #3d6749;
+}
+.dashboard-incidents--all .all-incidents-table .badge-resolved .badge-dot,
+.dashboard-incidents--all .all-incidents-table .badge-verified .badge-dot { background: #6c9778; }
+
+.dashboard-incidents--all .all-incidents-table .badge-closed {
+  background: #f1f4f7;
+  color: #48586d;
+}
+.dashboard-incidents--all .all-incidents-table .badge-closed .badge-dot { background: #8290a2; }
+
+.dashboard-incidents--all .all-incidents-table .incident-view {
+  min-height: 32px;
+  padding: 0 10px;
+  border-color: #d9e1ea;
+  border-radius: 6px;
+  color: #49667e;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.dashboard-incidents--all .all-incidents-table .incident-view:hover {
+  background: #f5f8fb;
+  border-color: #bdcbd9;
+  color: #294a65;
+}
+
+.dashboard-incidents--all .all-incidents-table .incident-view:focus-visible {
+  outline: 2px solid #5b8dab;
+  outline-offset: 2px;
+}

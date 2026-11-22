@@ -50,6 +50,11 @@ export const demoIncidents = baseIncidents.map((incident) => ({
   primaryTechnicianId: technicians.find((technician) => technician.name === incident.assignedTechnician)?.id || '',
 }));
 
+function withIncidentTitle(notification) {
+  const incident = demoIncidents.find((item) => item.id === notification.incidentId);
+  return incident ? { ...notification, incidentTitle: incident.title } : notification;
+}
+
 export const transferRequests = [
   { id: 'TR-101', incidentId: 'INC-1005', currentTechnicianId: 'T102', suggestedTechnicianId: 'T104', reason: 'High workload; specialist network investigation is needed.', reasonType: 'HIGH_WORKLOAD', handover: 'Database checks are in progress with T103. Review gateway timeouts next.', requestedAt: '2026-10-24T16:25:00', status: 'PENDING', decision: null },
   { id: 'TR-102', incidentId: 'INC-1002', currentTechnicianId: 'T103', suggestedTechnicianId: 'T101', reason: 'Hardware specialist required for unexpected shutdowns.', reasonType: 'SKILLS', handover: 'Power cable checked; inspect the machine hardware.', requestedAt: '2026-10-30T14:25:00', status: 'APPROVED', decision: 'Approved in this fictional history: T101 became primary owner.', decidedAt: '2026-10-30T14:28:00' },
@@ -159,7 +164,7 @@ export const adminNotifications = [
   ...demoIncidents.filter((incident) => incident.escalation).map((incident) => ({ id: `ADMIN-ESCALATION-${incident.id}`, type: 'INCIDENT_ESCALATED', incidentId: incident.id, target: 'incident', referenceId: incident.id, title: 'Incident escalated', message: incident.escalation.reason, timestamp: incident.escalation.escalatedAt })),
   { id: 'ADMIN-WORKLOAD-T102', type: 'TECHNICIAN_OVERLOADED', target: 'technician', referenceId: 'T102', title: 'Historical technician overload', message: 'At the seeded event time, T102 held INC-1005 and INC-1001 against an illustrative capacity of 1. INC-1001 was later resolved; the current active count is 1.', timestamp: '2026-10-28T11:12:00' },
   { id: 'ADMIN-SERVICE-101', type: 'SERVICE_DISRUPTION', incidentId: 'INC-1004', target: 'incident', referenceId: 'INC-1004', title: 'Service disruption reported', message: 'Campus Wi-Fi is degraded in the shared service snapshot. Review the library connectivity report.', timestamp: '2026-11-02T10:30:00' },
-];
+].map(withIncidentTitle);
 
 export const knowledgeArticles = [
   { id: 'KB-101', title: 'Campus Wi-Fi Authentication Problems', category: 'NETWORK', relatedService: 'Campus Wi-Fi', keywords: ['wireless', 'authentication', 'connection', 'access point'], problem: 'A device cannot authenticate or maintain a campus Wi-Fi connection.', steps: ['Confirm the selected campus network and check whether other devices are affected.', 'Reconnect using the institution-approved sign-in process; never share passwords.', 'Record the location, time and error message for the campus support team.'], relatedIncidentIds: ['INC-1004', 'INC-1009'], updatedAt: '2026-11-02', approvalStatus: 'APPROVED' },
@@ -184,7 +189,7 @@ export const technicianNotifications = [
   { id: 'NT-110', technicianId: 'T102', type: 'STUDENT_RESPONSE', incidentId: 'INC-1005', title: 'Student supplied the error message', message: 'REPLY-101 includes the payment gateway timeout message.', timestamp: '2026-10-24T15:58:00', read: false },
   { id: 'NT-111', technicianId: 'T102', type: 'INCIDENT_ESCALATED', incidentId: 'INC-1005', title: 'Payment incident escalated', message: 'The seeded escalation requested system administrator intervention.', timestamp: '2026-10-24T16:20:00', read: false },
   { id: 'NT-112', technicianId: 'T102', type: 'INCIDENT_RESOLVED', incidentId: 'INC-1001', title: 'Software incident resolved', message: 'The approved package was installed. Verification has not yet been recorded.', timestamp: '2026-10-28T15:30:00', read: true },
-];
+].map(withIncidentTitle);
 
 export const studentNotifications = [
   ...demoIncidents.map((incident) => ({ id: `ST-CREATE-${incident.id}`, studentId: incident.reporterId, incidentId: incident.id, type: 'INCIDENT_CREATED', title: 'Incident reported', message: incident.title, timestamp: incident.createdAt, read: false })),
@@ -194,4 +199,4 @@ export const studentNotifications = [
   ...demoIncidents.filter((incident) => incident.resolvedAt).map((incident) => ({ id: `ST-RESOLVE-${incident.id}`, studentId: incident.reporterId, incidentId: incident.id, type: 'INCIDENT_RESOLVED', title: 'Incident resolved in sample history', message: incident.resolution, timestamp: incident.resolvedAt, read: false })),
   ...demoIncidents.filter((incident) => incident.status === 'RESOLVED').map((incident) => ({ id: `ST-VERIFY-${incident.id}`, studentId: incident.reporterId, incidentId: incident.id, type: 'AWAITING_VERIFICATION', title: 'Resolution awaiting verification', message: 'Review the resolution and prepare your confirmation or explanation.', timestamp: incident.resolvedAt, read: false })),
   ...auditLogs.filter((event) => event.action === 'Incident Closed').map((event) => ({ id: `ST-${event.id}`, studentId: demoIncidents.find((incident) => incident.id === event.incidentId).reporterId, incidentId: event.incidentId, type: 'INCIDENT_CLOSED', title: 'Incident closed in sample history', message: 'View the recorded resolution and provide feedback.', timestamp: event.timestamp, read: false })),
-];
+].map(withIncidentTitle);

@@ -30,9 +30,12 @@ public class IncidentController {
     @PostMapping("/{id}/notes") public View note(@PathVariable Long id, @Valid @RequestBody Note request, Authentication auth) { return service.note(id, request, auth.getName()); }
     @PostMapping("/{id}/information") public View information(@PathVariable Long id, @Valid @RequestBody Message request, Authentication auth) { return service.information(id, request, auth.getName(), false); }
     @PostMapping("/{id}/reply") public View reply(@PathVariable Long id, @Valid @RequestBody Message request, Authentication auth) { return service.information(id, request, auth.getName(), true); }
+    @PostMapping("/{id}/resume") public View resume(@PathVariable Long id,@Valid @RequestBody Message request,Authentication auth) { return service.resumeWithoutReply(id,request,auth.getName()); }
     @PostMapping("/{id}/resolve") public View resolve(@PathVariable Long id, @Valid @RequestBody Resolution request, Authentication auth) { return service.resolve(id, request, auth.getName()); }
     @PostMapping("/{id}/verify") public View verify(@PathVariable Long id, @Valid @RequestBody Verification request, Authentication auth) { return service.verify(id, request, auth.getName()); }
     @PostMapping("/{id}/close") public View close(@PathVariable Long id, Authentication auth) { return service.close(id, auth.getName()); }
+    @PostMapping("/{id}/disposition") public View disposition(@PathVariable Long id, @Valid @RequestBody Disposition request, Authentication auth) { return service.dispose(id, request, auth.getName()); }
+    @PostMapping("/{id}/priority-override") public View priorityOverride(@PathVariable Long id,@Valid @RequestBody PriorityOverride request,Authentication auth) { return service.overridePriority(id,request,auth.getName()); }
     @PostMapping("/{id}/feedback") public View feedback(@PathVariable Long id, @Valid @RequestBody Feedback request, Authentication auth) { return service.feedback(id, request, auth.getName()); }
 
 }

@@ -34,7 +34,7 @@ class AssignmentStrategyTests {
         assertSame(software, new LoadBasedAssignment().assign(incident(Incident.Category.OTHER), candidates).orElseThrow());
     }
     @Test void excludesDisabledBusyUnavailableAndFullAccounts() {
-        for (AssignmentStrategy strategy : List.of(new SkillBasedAssignment(), new LoadBasedAssignment())) {
+        for (AssignmentStrategy strategy : List.of(new SkillBasedAssignment(), new LoadBasedAssignment(), new RandomAvailableAssignment())) {
             var disabled = technician(1, TechnicianSkill.NETWORK); disabled.setEnabled(false);
             var busy = technician(2, TechnicianSkill.NETWORK); busy.configureAssignment(busy.getSkills(), Technician.Availability.BUSY, 5);
             var unavailable = technician(3, TechnicianSkill.NETWORK); unavailable.setAvailable(false);

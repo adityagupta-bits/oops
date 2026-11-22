@@ -42,9 +42,21 @@ public class AdminManagementController {
     }
     public record UserView(Long id, String name, String email, Role role, boolean enabled, String studentNumber, Technician.Availability availability) { }
     public record NewUser(@NotBlank @Size(max=100) String name, @NotBlank String email, @NotNull Role role,
-            @NotBlank @Size(min=8,max=72) String password, @Size(max=30) String studentNumber, TechnicianSkill skill) { }
+            @NotBlank @Size(min=12,max=72) String password, @Size(max=30) String studentNumber, TechnicianSkill skill) {
+        @Override public String toString() { return "NewUser[redacted]"; }
+    }
     public record UserEdit(@NotBlank @Size(max=100) String name, boolean enabled) { }
-    public record CatalogEdit(@NotBlank @Size(max=100) String label, boolean enabled, Incident.Level criticality, String keywords) { }
+    public record CatalogEdit(@NotBlank @Size(max=100) String label, boolean enabled, Incident.Level criticality, @Size(max=2000) String keywords, @Size(max=2000) String description, TechnicianSkill requiredSkill) { }
+    public record NewCategory(@NotBlank String code,@NotBlank @Size(max=100) String label,@Size(max=2000) String keywords,boolean enabled,TechnicianSkill requiredSkill) { }
+    @PostMapping("/catalog/categories") @Transactional public CatalogEntry createCategory(@Valid @RequestBody NewCategory request,Authentication auth) {
+        var entry=catalog.createCategory(request.code(),request.label(),request.keywords(),request.enabled(),request.requiredSkill());
+        audit(auth,"CATEGORY_CREATED",null,entry.getCode(),entry.getLabel()); return entry;
+    }
+    public record NewService(@NotBlank String code, @NotBlank @Size(max=100) String label, @NotBlank @Size(max=2000) String description, @NotBlank @Size(max=2000) String keywords, Incident.Level criticality, boolean enabled) { }
+    @PostMapping("/catalog/services") @Transactional public CatalogEntry createService(@Valid @RequestBody NewService request, Authentication auth) {
+        var entry = catalog.createService(request.code(), request.label(), request.description(), request.keywords(), request.criticality(), request.enabled());
+        audit(auth, "SERVICE_CREATED", null, entry.getCode(), entry.getLabel()); return entry;
+    }
     private UserView view(User user) {
         return new UserView(user.getId(), user.getName(), user.getEmail(), user.getRole(), user.isEnabled(),
                 user instanceof Student student ? student.getStudentNumber() : null,
@@ -61,6 +73,7 @@ public class AdminManagementController {
         if (users.existsByEmail(address)) throw new IllegalStateException("An account already uses this email.");
         if (request.role() == Role.STUDENT && (request.studentNumber() == null || request.studentNumber().isBlank())) throw new IllegalArgumentException("Student ID is required.");
         if (request.role() == Role.TECHNICIAN && request.skill() == null) throw new IllegalArgumentException("Select a technician skill.");
+        com.bits.itsm.auth.PasswordPolicy.requireValid(request.password());
         String hash = passwords.encode(request.password());
         User user = switch (request.role()) {
             case STUDENT -> new Student(request.name().trim(), address, hash, request.studentNumber().trim());
@@ -73,6 +86,9 @@ public class AdminManagementController {
         settings.lock();
         User user = users.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found."));
         if (!request.enabled() && user.getEmail().equals(auth.getName())) throw new IllegalStateException("You cannot disable your own account.");
+        if (!request.enabled() && user instanceof Technician && incidents.findByAssignedTechnicianIdOrderByCreatedAtDesc(id).stream()
+                .anyMatch(i -> !java.util.Set.of(IncidentStatus.RESOLVED, IncidentStatus.VERIFIED, IncidentStatus.CLOSED).contains(i.getStatus())))
+            throw new IllegalStateException("Reassign this technician's unresolved incidents before deactivating the account.");
         String before = user.getName() + ":" + user.isEnabled();
         user.rename(request.name()); user.setEnabled(request.enabled());
         audit(auth, "USER_UPDATED", before, user.getName() + ":" + user.isEnabled(), "Updated account " + id); return view(user);
@@ -80,9 +96,11 @@ public class AdminManagementController {
     @GetMapping("/catalog") public List<CatalogEntry> catalog() { return catalog.all(); }
     @PutMapping("/catalog/{kind}/{code}") @Transactional public CatalogEntry updateCatalog(@PathVariable String kind, @PathVariable String code, @Valid @RequestBody CatalogEdit request, Authentication auth) {
         CatalogEntry entry = catalog.get(kind, code);
-        String before = entry.getLabel() + ":" + entry.isEnabled() + ":" + entry.getCriticality() + ":" + entry.getKeywords();
+        String before = entry.getLabel() + ":" + entry.isEnabled() + ":" + entry.getCriticality() + ":" + entry.getKeywords() + ":" + entry.getRequiredSkill();
         entry = catalog.update(kind, code, request.label(), request.enabled(), request.criticality(), request.keywords());
-        audit(auth, "CATALOG_UPDATED", before, entry.getLabel() + ":" + entry.isEnabled() + ":" + entry.getCriticality() + ":" + entry.getKeywords(), entry.getId()); return entry;
+        if (request.description() != null) entry.setDescription(request.description());
+        if ("CATEGORY".equals(kind)) entry.setRequiredSkill(request.requiredSkill());
+        audit(auth, "CATALOG_UPDATED", before, entry.getLabel() + ":" + entry.isEnabled() + ":" + entry.getCriticality() + ":" + entry.getKeywords() + ":" + entry.getRequiredSkill(), entry.getId()); return entry;
     }
     @GetMapping("/classification-settings")
     public ClassificationSettings classificationSettings() {
@@ -111,7 +129,7 @@ public class AdminManagementController {
         Instant now = Instant.now();
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("total", records.size());
-        report.put("active", records.stream().filter(i -> i.getResolvedAt() == null).count());
+        report.put("active", records.stream().filter(i -> i.getResolvedAt() == null && i.getStatus() != IncidentStatus.CLOSED).count());
         report.put("responseBreaches", records.stream().filter(i -> i.responseSla(now) == SlaClock.Status.BREACHED).count());
         report.put("resolutionBreaches", records.stream().filter(i -> i.resolutionSla(now) == SlaClock.Status.BREACHED).count());
         report.put("byStatus", records.stream().collect(java.util.stream.Collectors.groupingBy(i -> i.getStatus().name(), java.util.stream.Collectors.counting())));

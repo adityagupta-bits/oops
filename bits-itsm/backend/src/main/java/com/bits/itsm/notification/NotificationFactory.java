@@ -16,7 +16,10 @@ public final class NotificationFactory {
         String detail = e.description() == null ? "" : e.description();
         String title;
         String message;
-        switch (e.type()) {
+        if ("INTERNAL_MESSAGE_SENT".equals(e.action())) {
+            title = "New internal staff message";
+            message = "Incident " + inc + " has a new message in its private staff conversation.";
+        } else switch (e.type()) {
             case INCIDENT_CREATED -> {
                 title = "Incident reported";
                 message = "Incident " + inc + " was created.";

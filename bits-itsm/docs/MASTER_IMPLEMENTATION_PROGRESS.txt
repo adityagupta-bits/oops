@@ -1,0 +1,28 @@
+﻿BITSolve implementation continuation — 2026-11-22
+Request: master specification in attachment 08f794b4-15ce-4131-86dc-9c4becc154dd/Pasted text.txt. Continue implementation; do not redo audit or completed work.
+
+LIVE: backend PID34232 runs target/verification-build/bitsolve-backend-0.0.1-SNAPSHOT.jar, PostgreSQL bitsolve V13, frontend Vite5173. Both health endpoints HTTP200. All18 original application-table full-row hashes match target/v13-before-integrity.json. Five users/four incidents remain. Zero enabled services; never activate or create live test data. NEW backend NOT deployed.
+
+NEW implementation:
+- AssignmentService.preview and GET /api/admin/assignment-preview/{id}; AssignmentPreview.jsx explains eligibility and saved strategy selection. Unknown required skill no longer assigned automatically by worker. BUSY excluded explicitly.
+- V14 nullable incidents.reported_service + validated service-code check. ReportIncident optional actual catalog service hint; stored separately. Conflicting hint triggers review, notification delivered to admins. Matching keywords remain authoritative.
+- IncidentService.start atomically acknowledges ASSIGNED then starts investigation, preserving original deadlines; live UI Start Work gated by incidents/options.atomicStartWork for compatibility with V13 server.
+- Manual reassignment requires 5–2000 character reason and notifies previous/new owner. Unresolved incident ownership prevents technician deactivation.
+- Shared PasswordPolicy:12 chars + letter/number,72 UTF-8 byte cap. Registration/admin creation aligned; no reset/change-password implementation yet. NewUser.toString redacted.
+- V15 adds MESSAGE to investigation_notes kind check and incident_message_reads(incident_id,user_id,last_read_message_id) with foreign keys. IncidentConversation service/controller GET/POST /api/incidents/{id}/messages and POST /read. Participant object authorization, private notes excluded, read state persisted, notifications/audit. React polling/composer/mark-read gated by options.incidentMessaging.
+- Existing template service_code mapping exposed in admin form and reporting. Only active/configured service hints returned; authored title/description never overwritten. reportingTemplate helper has real behavior tests.
+- SlaCountdown in shared incident list/details, one-second display, timezone-aware parsing and frozen resolution output. Backend official SLA status still authoritative; browser clock offset synchronization NOT implemented.
+- Parent details dialog ignores nested dialog close events. SuggestedSolutions removed from live incident actions; preview Knowledge Base shortcut removed. Full navigation cleanup incomplete.
+
+Verification:
+- Isolated DB bitsolve_restore_verify_20261122033926 now V15, Flyway validated. All test fixtures rolled back:5 users/4 incidents,0 custom test services/0 message receipts.
+- target/master-workflow-tests.log:22 focused tests pass, including9 AutomaticProcessingPersistenceTests (catalog pipeline, unknown/disabled/ambiguous/evidence, pending assignment, missing SLA, strategy preview + full lifecycle, hints, reassignment/deactivation, messaging privacy+read+authorization, SLA dedup catch-up).
+- target/master-package.log:199 discovered,143 passed,56 DB-gated skipped, no failures. Packaged target/master-build/bitsolve-backend-0.0.1-SNAPSHOT.jar.
+- npm test15 pass; npm run build passes. No browser walkthrough claim. Prior CUA refused Firefox URL policy; browser host unavailable. Do not bypass.
+- New migrations only isolated. Explicit user approval REQUIRED before V14/V15 normal startup on live.
+
+Remaining (master NOT complete): dynamic custom categories and service/category configuration, richer assignment/priority history UI, password reset/self-change, withdrawal/invalid/duplicate closure, information-request unanswered workflow, configurable warning stages/escalation policies/acknowledgement/manual escalation, clock-sync countdown/dashboard+SLA page placement, deep tabbed incident details, operational dashboards/drilldowns/Insights, consolidated navigation, browser/security regression coverage of remaining workflows. Existing scheduler warning80% and P1 escalation are implemented but master policies are not.
+
+Next: finish Phase A category/template mapping and configuration persistence, then remaining lifecycle/security dependencies. Preserve dirty Git changes. Do not reset repo or change applied migrations. Test isolated only. New package requires explicit V14/V15 deployment approval later; keep safe implementation moving before requesting deployment.
+
+Commands: Java25 D:\IntelliJ IDEA 2026.2.1\jbr; backend/mvnw.cmd -o; PostgreSQL18 psql. pgpass in APPDATA/postgresql/pgpass.conf, never output secret. Set BITSOLVE_DB_TESTS=true and BITSOLVE_TEST_DB_URL=jdbc:postgresql://localhost:5432/bitsolve_restore_verify_20261122033926 for focused integration tests. Do not run whole legacy PG suite against restored fixture without inspecting fixture assumptions. Existing log shows unit package143 pass. For packaging avoid running JAR path: temporary POM build.directory target/master-build (already built), remove temporary POM afterward.

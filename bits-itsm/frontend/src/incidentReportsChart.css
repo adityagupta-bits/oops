@@ -1,0 +1,19 @@
+.incident-reports-chart { margin: 24px 0; padding: 20px 24px; background: #fff; border: 1px solid #dfe5ed; border-radius: 12px; color: #17243a; }
+.incident-reports-chart-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.incident-reports-chart h3 { margin: 0; font-size: 18px; }
+.incident-reports-chart-heading p { margin: 5px 0 0; color: #64748b; font-size: 13px; }
+.incident-reports-chart-heading label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.incident-reports-chart-heading select { width: auto; min-height: 36px; height: auto; padding: 7px 28px 7px 10px; font: inherit; border: 1px solid #ccd5e1; border-radius: 6px; background-color: white; color: inherit; }
+.incident-reports-chart-total { margin: 16px 0 8px; font-size: 14px; color: #64748b; }
+.incident-reports-chart-total strong { color: #17243a; font-size: 24px; }
+.incident-reports-chart svg { display: block; width: 100%; max-height: 260px; }
+.incident-reports-chart svg text { fill: #64748b; font-size: 12px; font-family: inherit; }
+.incident-chart-grid { stroke: #edf0f4; stroke-width: 1; }
+.incident-chart-bar { fill: #477ba1; }
+.incident-chart-bar:hover { fill: #28577b; }
+.incident-reports-chart-empty { padding: 30px 0; text-align: center; color: #64748b; }
+.incident-reports-chart details { font-size: 13px; margin-top: 8px; }
+.incident-reports-chart summary { cursor: pointer; color: #477ba1; }
+.incident-reports-chart table { margin-top: 12px; width: 100%; border-collapse: collapse; }
+.incident-reports-chart th, .incident-reports-chart td { text-align: left; padding: 6px; border-bottom: 1px solid #edf0f4; }
+@media (max-width: 600px) { .incident-reports-chart { padding: 16px 12px; } }

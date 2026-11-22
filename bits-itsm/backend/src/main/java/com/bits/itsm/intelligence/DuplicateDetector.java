@@ -44,7 +44,7 @@ public class DuplicateDetector {
         return others.stream()
                 .filter(o -> !o.id().equals(candidate.id()))
                 .filter(IncidentStates::isOpen)
-                .filter(o -> candidate.service() == o.service())
+                .filter(o -> java.util.Objects.equals(candidate.service(), o.service()))
                 .filter(o -> candidate.category() == o.category() || candidate.category() == com.bits.itsm.incident.Incident.Category.OTHER || o.category() == com.bits.itsm.incident.Incident.Category.OTHER)
                 .filter(o -> !o.createdAt().isBefore(candidate.createdAt().minus(java.time.Duration.ofDays(30))))
                 .map(o -> new DuplicateMatch(o.id(), o.title(), TextSimilarity.similarity(candidateText, textOf(o))))

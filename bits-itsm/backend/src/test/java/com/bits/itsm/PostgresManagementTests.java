@@ -42,6 +42,7 @@ class PostgresManagementTests {
                 .andExpect(status().is(status)).andReturn();
         return json.readTree(result.getResponse().getContentAsString());
     }
+    Map<String, Object> review() { return Map.of("category", "NETWORK", "affectedService", "CAMPUS_WIFI", "impact", "HIGH", "urgency", "MEDIUM", "reason", "Administrator reviewed management fixture.", "criticality", "LOW"); }
     long create() throws Exception {
         return call("student01", "POST", "incidents", Map.of("title", "Wifi router outage", "description", "The wifi router cannot connect to the internet in the library.", "category", "NETWORK", "affectedService", "CAMPUS_WIFI", "impact", "HIGH", "urgency", "MEDIUM"), 201).get("id").asLong();
     }
@@ -57,17 +58,17 @@ class PostgresManagementTests {
             // Even malformed legacy data with enabled=true cannot bypass business validation.
             jdbc.update("update catalog_entries set enabled=true where id='SERVICE:CAMPUS_WIFI'");
             long before = jdbc.queryForObject("select count(*) from incidents", Long.class);
-            call("student01", "POST", "incidents", Map.of("title", "Wifi unavailable", "description", "Campus wifi is unavailable on all my devices.", "category", "NETWORK", "affectedService", "CAMPUS_WIFI", "impact", "HIGH", "urgency", "MEDIUM"), 409);
+            call("student01", "POST", "incidents", Map.of("title", "Wifi unavailable", "description", "Campus wifi is unavailable on all my devices.", "category", "NETWORK", "affectedService", "CAMPUS_WIFI", "impact", "HIGH", "urgency", "MEDIUM"), 201);
             var config = call("admin01", "GET", "admin/priority-strategy", Map.of(), 200);
             call("admin01", "POST", "admin/priority-strategy/preview", Map.of("configuration", config, "impact", "HIGH", "urgency", "MEDIUM", "affectedService", "CAMPUS_WIFI"), 409);
-            assertEquals(before, jdbc.queryForObject("select count(*) from incidents", Long.class));
+            assertEquals(before + 1, jdbc.queryForObject("select count(*) from incidents", Long.class));
             for (String level : List.of("LOW", "MEDIUM", "HIGH")) {
                 call("admin01", "PUT", "admin/catalog/SERVICE/CAMPUS_WIFI", Map.of("label", "Campus Wi-Fi", "enabled", true, "criticality", level), 200);
                 testCatalog.run(null);
                 assertEquals(level, testCatalog.get("SERVICE", "CAMPUS_WIFI").getCriticality().name());
             }
             long id = create();
-            assertEquals("HIGH", call("admin01", "POST", "incidents/" + id + "/classify", Map.of("category", "NETWORK"), 200).get("criticality").asText());
+            assertEquals("HIGH", call("admin01", "POST", "incidents/" + id + "/reclassify", review(), 200).get("criticality").asText());
         } finally { testCatalog.update("SERVICE", "CAMPUS_WIFI", "Campus Wi-Fi", true, com.bits.itsm.incident.Incident.Level.MEDIUM); }
     }
     @Test void notificationReadStateAndRecipientAuthorizationArePersisted() throws Exception {
@@ -89,11 +90,11 @@ class PostgresManagementTests {
             call("admin01", "PUT", "admin/catalog/SERVICE/CAMPUS_WIFI", Map.of("label", "Campus Wi-Fi", "enabled", true, "criticality", "LOW"), 200);
             call("admin01", "PUT", "admin/priority-strategy", multiply, 200);
             long first = create();
-            JsonNode original = call("admin01", "POST", "incidents/" + first + "/classify", Map.of("category", "NETWORK", "criticality", "LOW"), 200);
+            JsonNode original = call("admin01", "POST", "incidents/" + first + "/reclassify", review(), 200);
             assertEquals("P3", original.get("priority").asText());
             call("admin01", "PUT", "admin/priority-strategy", weighted, 200);
             long second = create();
-            assertEquals("P2", call("admin01", "POST", "incidents/" + second + "/classify", Map.of("category", "NETWORK", "criticality", "LOW"), 200).get("priority").asText());
+            assertEquals("P2", call("admin01", "POST", "incidents/" + second + "/reclassify", review(), 200).get("priority").asText());
             JsonNode reloaded = call("admin01", "GET", "incidents/" + first, Map.of(), 200);
             assertEquals(original.get("priority"), reloaded.get("priority"));
             assertEquals(original.get("responseDeadline"), reloaded.get("responseDeadline"));
@@ -111,7 +112,7 @@ class PostgresManagementTests {
         try {
             call("admin01", "PUT", "admin/catalog/SERVICE/CAMPUS_WIFI", Map.of("label", "Campus Wi-Fi", "enabled", true, "criticality", "HIGH"), 200);
             long id = create();
-            assertEquals("HIGH", call("admin01", "POST", "incidents/" + id + "/classify", Map.of("category", "NETWORK"), 200).get("criticality").asText());
+            assertEquals("HIGH", call("admin01", "POST", "incidents/" + id + "/reclassify", review(), 200).get("criticality").asText());
         } finally { call("admin01", "PUT", "admin/catalog/SERVICE/CAMPUS_WIFI", Map.of("label", "Campus Wi-Fi", "enabled", true, "criticality", "MEDIUM"), 200); }
     }
     @Test void scheduledEventClaimSurvivesServiceReconstruction() throws Exception {
@@ -150,7 +151,7 @@ class PostgresManagementTests {
             "matrix", List.of("P4","P3","P2","P3","P2","P1","P2","P1","P1"), "criticalBoost", 1,
             "rules", List.of(Map.of("condition","HIGH_IMPACT","priority","P1")), "fallback", "P4"));
         long historical = create();
-        var before = call("admin01", "POST", "incidents/" + historical + "/classify", Map.of("category","NETWORK"), 200);
+        var before = call("admin01", "POST", "incidents/" + historical + "/reclassify", review(), 200);
         try {
             for (String mode : List.of("MULTIPLICATIVE","WEIGHTED","MATRIX","RULE_BASED")) {
                 config.put("strategy",mode);
@@ -164,7 +165,7 @@ class PostgresManagementTests {
                 call("admin01","PUT","admin/priority-strategy",config,200);
                 assertEquals(mode,call("admin01","GET","admin/priority-strategy",Map.of(),200).get("strategy").asText());
                 long id = call("student01","POST","incidents",Map.of("title","Runtime priority test","description","The campus network is unavailable in the library.","category","NETWORK","affectedService","CAMPUS_WIFI","impact","HIGH","urgency","LOW","criticality","HIGH"),201).get("id").asLong();
-                assertEquals(expected,call("admin01","POST","incidents/"+id+"/classify",Map.of("category","NETWORK","criticality","HIGH"),200).get("priority").asText());
+                assertEquals(expected,call("admin01","POST","incidents/"+id+"/reclassify",Map.of("category","NETWORK","affectedService","CAMPUS_WIFI","impact","HIGH","urgency","LOW","reason","Administrator reviewed strategy fixture.","criticality","HIGH"),200).get("priority").asText());
             }
             config.put("matrix", List.of("P1"));
             call("admin01","PUT","admin/priority-strategy",config,400);

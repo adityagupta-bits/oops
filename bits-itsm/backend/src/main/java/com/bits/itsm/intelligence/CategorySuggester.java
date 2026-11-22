@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 @Component @ConfigurationProperties(prefix = "bitsolve.categorization")
 public class CategorySuggester {
-    private Map<Category, List<String>> rules = new EnumMap<>(Category.class);
+    private Map<Category, List<String>> rules = new LinkedHashMap<>();
     public CategorySuggester() {
         rules.put(Category.NETWORK, List.of("wi-fi", "wifi", "router", "internet", "network"));
         rules.put(Category.AUTHENTICATION, List.of("password", "login", "authentication", "sign in"));
@@ -21,7 +21,7 @@ public class CategorySuggester {
         rules.put(Category.APPLICATION, List.of("portal", "application"));
     }
     public Map<Category, List<String>> getRules() { return rules; }
-    public void setRules(Map<Category, List<String>> rules) { this.rules = new EnumMap<>(Category.class); this.rules.putAll(rules); }
+    public void setRules(Map<Category, List<String>> rules) { this.rules = new LinkedHashMap<>(); this.rules.putAll(rules); }
     public record Suggestion(Category category, String explanation) { }
 
     public Suggestion suggest(String title, String description) {

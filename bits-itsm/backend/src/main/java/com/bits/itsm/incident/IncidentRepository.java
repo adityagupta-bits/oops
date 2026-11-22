@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Pageable;
 
 public interface IncidentRepository extends JpaRepository<Incident, Long> {
+    List<Incident> findByStatusAndAssignedTechnicianIsNullOrderByPriorityAscCreatedAtAsc(IncidentStatus status);
     List<Incident> findByReporterIdOrderByCreatedAtDesc(Long reporterId);
     List<Incident> findByAssignedTechnicianIdOrderByCreatedAtDesc(Long technicianId);
     List<Incident> findAllByOrderByCreatedAtDesc();
@@ -17,9 +18,9 @@ public interface IncidentRepository extends JpaRepository<Incident, Long> {
     List<Incident> findResolutionCandidates(@Param("statuses") List<IncidentStatus> statuses, Pageable pageable);
     @Query("select distinct i from Incident i left join i.collaborators c where i.assignedTechnician.id = :id or c.technician.id = :id order by i.createdAt desc")
     List<Incident> findTeamIncidents(Long id);
-    @Query("select i.assignedTechnician.id, i.status, i.priority, count(i) from Incident i where i.assignedTechnician is not null group by i.assignedTechnician.id, i.status, i.priority")
+    @Query("select i.assignedTechnician.id, i.status, i.priority, count(i) from Incident i where i.assignedTechnician is not null and (i.status <> com.bits.itsm.incident.IncidentStatus.CLOSED or i.resolvedAt is not null) group by i.assignedTechnician.id, i.status, i.priority")
     List<Object[]> primaryWorkloads();
-    @Query("select c.technician.id, i.status, i.priority, count(distinct i.id) from Incident i join i.collaborators c group by c.technician.id, i.status, i.priority")
+    @Query("select c.technician.id, i.status, i.priority, count(distinct i.id) from Incident i join i.collaborators c where i.status <> com.bits.itsm.incident.IncidentStatus.CLOSED or i.resolvedAt is not null group by c.technician.id, i.status, i.priority")
     List<Object[]> collaborationWorkloads();
     // Serialize lifecycle actions and feedback submissions for one incident.
     @Lock(LockModeType.PESSIMISTIC_WRITE)

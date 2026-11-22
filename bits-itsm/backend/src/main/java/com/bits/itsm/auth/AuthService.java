@@ -19,10 +19,6 @@ public class AuthService implements UserDetailsService {
         if (!EmailValidator.isValid(email)) throw new UsernameNotFoundException("Invalid credentials");
         var user = users.findByEmail(EmailValidator.normalize(email))
                 .orElseThrow(() -> new UsernameNotFoundException("Invalid credentials"));
-        return org.springframework.security.core.userdetails.User.withUsername(user.getEmail())
-                .password(user.getPasswordHash())
-                .roles(user.getRole().name())
-                .disabled(!user.isEnabled())
-                .build();
+        return new VersionedPrincipal(user);
     }
 }

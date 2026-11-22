@@ -25,6 +25,9 @@ public abstract class User {
 
     @Column(nullable = false)
     private boolean enabled = true;
+    @JsonIgnore
+    @Column(nullable = false)
+    private long credentialVersion;
 
     protected User() { }
 
@@ -53,6 +56,11 @@ public abstract class User {
     public String getPasswordHash() { return passwordHash; }
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    @JsonIgnore public long getCredentialVersion() { return credentialVersion; }
+    public void changePassword(String hash) {
+        if (hash == null || !hash.startsWith("$2")) throw new IllegalArgumentException("A BCrypt password hash is required.");
+        passwordHash = hash; credentialVersion++;
+    }
 
     // The concrete user type determines authorization; clients cannot assign a role.
     public abstract Role getRole();

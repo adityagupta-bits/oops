@@ -14,6 +14,12 @@ public class AssignmentController {
     private final IncidentService incidents;
     public AssignmentController(AssignmentService service, IncidentService incidents) { this.service = service; this.incidents = incidents; }
     @GetMapping("/admin/assignment-strategy") public Strategy strategy(Authentication auth) { return service.strategy(auth.getName()); }
+    public record TeamChange(@jakarta.validation.constraints.NotNull Long technicianId, @jakarta.validation.constraints.NotBlank String reason, boolean remove) {}
+    @PostMapping("/admin/incidents/{id}/collaborators") public IncidentData.View manage(@PathVariable Long id,@Valid @RequestBody TeamChange request,Authentication auth) {
+        service.manageCollaborator(id,request.technicianId(),request.reason(),request.remove(),auth.getName());
+        return incidents.get(id,auth.getName());
+    }
+    @GetMapping("/admin/assignment-preview/{id}") public AssignmentService.AssignmentPreview preview(@PathVariable Long id, Authentication auth) { return service.preview(id, auth.getName()); }
     @PutMapping("/admin/assignment-strategy") public Strategy strategy(@Valid @RequestBody Strategy request, Authentication auth) { return service.selectStrategy(request, auth.getName()); }
     @GetMapping("/technician/workload") public WorkloadService.Workload workload(Authentication auth) { return service.workload(auth.getName(), false).getFirst(); }
     @GetMapping("/technician/availability")
@@ -29,7 +35,7 @@ public class AssignmentController {
     @PutMapping("/admin/technicians/{id}/assignment-profile") public WorkloadService.Workload profile(@PathVariable Long id, @Valid @RequestBody Profile request, Authentication auth) { return service.profile(id, request, auth.getName()); }
     @GetMapping("/incidents/{id}/eligible-technicians") public List<WorkloadService.Workload> eligible(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean collaboration, @RequestParam(required = false) TechnicianSkill skill, Authentication auth) { return service.eligibleList(id, collaboration, skill, auth.getName()); }
     @PostMapping("/incidents/{id}/auto-assign") public IncidentData.View auto(@PathVariable Long id, Authentication auth) { service.assign(id, null, true, auth.getName()); return incidents.get(id, auth.getName()); }
-    @PostMapping("/incidents/{id}/assign") public IncidentData.View assign(@PathVariable Long id, @Valid @RequestBody IncidentData.Assignment request, Authentication auth) { service.assign(id, request.technicianId(), false, auth.getName()); return incidents.get(id, auth.getName()); }
+    @PostMapping("/incidents/{id}/assign") public IncidentData.View assign(@PathVariable Long id, @Valid @RequestBody IncidentData.Assignment request, Authentication auth) { service.assign(id, request.technicianId(), false, auth.getName(), request.reason()); return incidents.get(id, auth.getName()); }
     @PostMapping("/incidents/{id}/transfer-requests") public RequestView transfer(@PathVariable Long id, @Valid @RequestBody Transfer request, Authentication auth) { return service.transfer(id, request, auth.getName()); }
     @PostMapping("/incidents/{id}/collaboration-requests") public RequestView collaborate(@PathVariable Long id, @Valid @RequestBody Collaboration request, Authentication auth) { return service.collaborate(id, request, auth.getName()); }
     @GetMapping("/technician/team-incidents") public List<IncidentData.View> team(Authentication auth) { return incidents.team(auth.getName()); }

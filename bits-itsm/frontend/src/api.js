@@ -24,7 +24,7 @@ export async function apiRequest(path, options = {}) {
     sessionEvents.dispatchEvent(new Event('expired'));
   }
   if (!response.ok || !data) {
-    const error = new Error(response.status === 401 && path !== 'auth/login' ? 'Please sign in again. Your session may have expired.' : response.status >= 500 || !data ? 'Unable to connect to the BITSolve server.' : data.message || 'The request could not be completed.');
+    const error = new Error(response.status === 401 && path !== 'auth/login' ? 'Please sign in again. Your session may have expired.' : response.status >= 500 || !data ? 'Unable to connect to the BITSolve server.' : data.message || (response.status === 404 ? 'This operation is unavailable on the running backend (HTTP 404). The updated backend must be deployed.' : `The request could not be completed (HTTP ${response.status}).`));
     error.status = response.status;
     throw error;
   }

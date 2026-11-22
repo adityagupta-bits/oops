@@ -9,7 +9,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /** Adapter: turns IncidentRepository / UserRepository data into IncidentSnapshot objects. */
 @Component
@@ -34,6 +36,13 @@ public class RepositoryIncidentLookup implements IncidentLookup {
         return incidents.findAllByOrderByCreatedAtDesc().stream()
                 .map(RepositoryIncidentLookup::snapshot)
                 .toList();
+    }
+
+    @Override
+    public Map<Long, String> findTitlesByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Map.of();
+        return incidents.findAllById(ids).stream()
+                .collect(Collectors.toUnmodifiableMap(Incident::getId, Incident::getTitle, (first, ignored) -> first));
     }
 
     @Override

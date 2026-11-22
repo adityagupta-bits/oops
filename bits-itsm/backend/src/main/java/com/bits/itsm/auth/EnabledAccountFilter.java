@@ -16,7 +16,9 @@ public class EnabledAccountFilter extends OncePerRequestFilter {
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (request.getRequestURI().startsWith("/api/") && auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)
-                && users.findByEmail(auth.getName()).filter(User::isEnabled).isEmpty()) {
+                && users.findByEmail(auth.getName()).filter(User::isEnabled)
+                    .filter(user -> !(auth.getPrincipal() instanceof VersionedPrincipal principal)
+                        || user.getCredentialVersion() == principal.credentialVersion()).isEmpty()) {
             SecurityContextHolder.clearContext();
             if (request.getSession(false) != null) request.getSession(false).invalidate();
             response.setStatus(401); response.setContentType("application/json");

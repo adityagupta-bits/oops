@@ -43,11 +43,11 @@ public class AuthController {
         String email = EmailValidator.normalize(input.email());
         String password = input.password();
         if (input.name() == null || input.name().isBlank() || input.name().trim().length() > 100
-                || password == null || password.length() < 10
+                || password == null || !PasswordPolicy.valid(password)
                 || password.getBytes(StandardCharsets.UTF_8).length > 72
                 || !password.matches("(?s).*[A-Za-z].*") || !password.matches("(?s).*[0-9].*")
                 || !password.equals(input.confirmPassword())) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Enter your name and matching passwords with at least 10 characters, a letter and a number (maximum 72 bytes)."));
+            return ResponseEntity.badRequest().body(Map.of("message", "Enter your name and matching passwords with at least 12 characters, a letter and a number (maximum 72 bytes)."));
         }
         if (users.existsByEmail(email)) return duplicateEmail();
         try {
@@ -79,6 +79,7 @@ public class AuthController {
     }
 
     public record Account(Long id, String name, String email, Role role) {
+        public boolean getPasswordManagement() { return true; }
         static Account from(User user) {
             return new Account(user.getId(), user.getName(), user.getEmail(), user.getRole());
         }

@@ -39,9 +39,10 @@ class NotificationServiceTest {
         org.mockito.Mockito.when(repository.findByRecipientIdAndChannelOrderByCreatedAtDesc(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString()))
                 .thenAnswer(call -> saved.stream().filter(n -> n.getRecipientId().equals(call.getArgument(0)) && n.getChannel().equals(call.getArgument(1))).toList());
         org.mockito.Mockito.when(repository.findByChannelOrderByCreatedAtDesc("EMAIL")).thenAnswer(call -> saved.stream().filter(n -> n.getChannel().equals("EMAIL")).toList());
-        inApp = new InAppChannel(repository);
+        var lookup = new FakeLookup().with(incident);
+        inApp = new InAppChannel(repository, lookup);
 
-        service = new NotificationService(new FakeLookup().with(incident), List.of(inApp));
+        service = new NotificationService(lookup, List.of(inApp));
     }
 
     @Test
@@ -96,6 +97,16 @@ class NotificationServiceTest {
         assertTrue(inApp.markRead(n.id(), REPORTER));
         assertTrue(inApp.getFor(REPORTER).get(0).read());
         assertFalse(inApp.markRead("NT-999999", REPORTER));
+    }
+
+    @Test
+    void markAllReadOnlyUpdatesTheCurrentRecipientsInAppNotifications() {
+        service.onEvent(event(EventType.INCIDENT_ASSIGNED, 1));
+        assertEquals(1, inApp.markAllRead(REPORTER));
+        assertEquals(0, inApp.markAllRead(REPORTER));
+        assertTrue(inApp.getFor(REPORTER).get(0).read());
+        assertEquals("Title 1", inApp.getFor(REPORTER).get(0).incidentTitle());
+        assertFalse(inApp.getFor(TECH).get(0).read());
     }
 
     @Test

@@ -67,6 +67,31 @@ public class AssignmentService implements ApplicationRunner {
                 .map(AssignmentStrategy.Candidate::technician).findFirst().orElseThrow(() -> new IllegalStateException("Technician is already on this incident, disabled, busy, unavailable, unqualified or at capacity."));
     }
     public Strategy strategy(String email) { actor(email, Role.ADMIN); return new Strategy(settings.findById(1L).orElseThrow().getStrategy()); }
+    public record CandidatePreview(Long id, String name, Set<TechnicianSkill> skills, long workload,
+            int capacity, boolean eligible, List<String> reasons, boolean selected) { }
+    public record AssignmentPreview(AssignmentSettings.Mode strategy, TechnicianSkill requiredSkill, List<CandidatePreview> technicians) { }
+    public AssignmentPreview preview(Long id, String email) {
+        actor(email, Role.ADMIN);
+        Incident incident = incidents.findById(id).orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Incident not found."));
+        var mode = settings.findById(1L).orElseThrow().getStrategy();
+        boolean generalSupport = Incident.Category.OTHER.equals(incident.getCategory());
+        AssignmentStrategy strategy = generalSupport ? new RandomAvailableAssignment()
+                : mode == AssignmentSettings.Mode.SKILL_BASED ? new SkillBasedAssignment() : new LoadBasedAssignment();
+        boolean assignable = incident.getStatus() == IncidentStatus.CLASSIFIED && incident.getAssignedTechnician() == null
+                && !incident.isNeedsClassificationReview() && (generalSupport || incident.requiredSkill() != null);
+        Long selected = assignable ? strategy.assign(incident, workloads.candidates(incident)).map(User::getId).orElse(null) : null;
+        var candidates = workloads.all().stream().map(w -> {
+            List<String> reasons = new ArrayList<>();
+            if (!assignable) reasons.add("Incident must be classified and unassigned; only general-support fallback may omit a specialist skill.");
+            if (!w.enabled()) reasons.add("Account is inactive.");
+            if (w.availability() != Technician.Availability.AVAILABLE) reasons.add("Only AVAILABLE technicians receive new assignments; BUSY and UNAVAILABLE are excluded.");
+            if (w.total() >= w.maxWorkload()) reasons.add("Maximum workload capacity reached.");
+            if (!generalSupport && incident.requiredSkill() != null && !w.skills().contains(incident.requiredSkill())) reasons.add("Missing required skill: " + incident.requiredSkill());
+            if (incident.participates(w.id())) reasons.add("Already participates in this incident.");
+            return new CandidatePreview(w.id(), w.name(), w.skills(), w.total(), w.maxWorkload(), reasons.isEmpty(), List.copyOf(reasons), Objects.equals(selected,w.id()));
+        }).toList();
+        return new AssignmentPreview(mode, incident.requiredSkill(), candidates);
+    }
     @Transactional public Strategy selectStrategy(Strategy request, String email) {
         actor(email, Role.ADMIN); var config = settings.lock(); config.select(request.strategy()); return new Strategy(config.getStrategy());
     }
@@ -80,6 +105,7 @@ public class AssignmentService implements ApplicationRunner {
         return technician.getAvailability();
     }
     @Transactional public WorkloadService.Workload updateAvailability(Technician.Availability availability, String email) {
+        settings.lock(); // Serialize availability changes with technician selection and capacity checks.
         User user = actor(email, Role.TECHNICIAN);
         if (!(user instanceof Technician technician)) throw new IllegalArgumentException("Authenticated user is not a technician.");
         if (availability == null) throw new IllegalArgumentException("Availability status is required.");
@@ -102,19 +128,73 @@ public class AssignmentService implements ApplicationRunner {
         Set<Long> ids = new HashSet<>(); workloads.candidates(incident).stream().filter(c -> c.eligible(required)).forEach(c -> ids.add(c.technician().getId()));
         return workloads.all().stream().filter(w -> ids.contains(w.id())).toList();
     }
+    @Transactional public void manageCollaborator(Long id, Long technicianId, String reason, boolean remove, String email) {
+        User user=actor(email,Role.ADMIN); Incident incident=locked(id); incident.requireAssignableTeam();
+        if(reason==null || reason.trim().length()<5 || reason.length()>2000) throw new IllegalArgumentException("Provide a reason or responsibility of 5–2000 characters.");
+        if(remove) {
+            var member=incident.getCollaborators().stream().filter(c -> c.getTechnician().getId().equals(technicianId)).findFirst().orElseThrow(() -> new IllegalArgumentException("Collaborator not found."));
+            incident.removeCollaborator(technicianId);
+        } else incident.addCollaborator(eligible(incident,technicianId,null),reason.trim());
+        String action=remove?"COLLABORATOR_REMOVED":"COLLABORATOR_ADDED";
+        incident.record(user,action,reason.trim(),INTERNAL); incidents.flush();
+        events.publishTo(id,user.getId(),action,null,technicianId.toString(),reason.trim(),Set.of(technicianId));
+    }
+    /** Internal worker entry point; never exposed as an unauthenticated HTTP operation. */
+    @Transactional public boolean assignPending(Long id) {
+        Incident incident = locked(id);
+        if (incident.getStatus() != IncidentStatus.CLASSIFIED || incident.getAssignedTechnician() != null
+                || incident.getPriority() == Incident.Priority.PENDING || incident.isNeedsClassificationReview()) return false;
+        boolean generalSupport = Incident.Category.OTHER.equals(incident.getCategory());
+        AssignmentStrategy strategy = generalSupport ? new RandomAvailableAssignment()
+                : settings.findById(1L).orElseThrow().getStrategy() == AssignmentSettings.Mode.SKILL_BASED
+                    ? new SkillBasedAssignment() : new LoadBasedAssignment();
+        var selected = generalSupport ? strategy.assign(incident, workloads.candidates(incident))
+                : incident.requiredSkill() == null ? Optional.<Technician>empty() : strategy.assign(incident, workloads.candidates(incident));
+        if (selected.isEmpty()) {
+            if (incident.getHistory().stream().noneMatch(h -> "PENDING_ASSIGNMENT".equals(h.getAction()))) {
+                String message = "Pending assignment: no enabled, available technician " + (generalSupport ? "with spare capacity" : "has the required skill and spare capacity") + ". Priority and SLA are retained.";
+                incident.record(incident.getReporter(), "PENDING_ASSIGNMENT", message, STUDENT_VISIBLE);
+                incidents.flush();
+                var admins = users.findAll().stream().filter(u -> u.isEnabled() && u.getRole() == Role.ADMIN)
+                        .map(User::getId).collect(java.util.stream.Collectors.toSet());
+                events.publishTo(id, null, "PENDING_ASSIGNMENT", null, "Pending Assignment", message, admins);
+            }
+            return false;
+        }
+        Technician technician = selected.get();
+        incident.assign(technician);
+        String reason = generalSupport ? "random general-support selection among active AVAILABLE technicians with spare capacity; specialist skill was not required"
+                : "configured " + settings.findById(1L).orElseThrow().getStrategy() + " strategy, required skill and available capacity";
+        incident.record(incident.getReporter(), "AUTO_ASSIGNED", "System assigned to " + technician.getName() + " using " + reason + ".", STUDENT_VISIBLE);
+        incidents.flush();
+        events.publish(id, null, "AUTO_ASSIGNED", "Unassigned", technician.getId().toString(),
+                "System assigned to " + technician.getName() + " using " + reason + ".");
+        return true;
+    }
     @Transactional public void assign(Long id, Long technicianId, boolean automatic, String email) {
+        assign(id, technicianId, automatic, email, null);
+    }
+    @Transactional public void assign(Long id, Long technicianId, boolean automatic, String email, String reason) {
         User user = actor(email, Role.ADMIN); Incident incident = locked(id);
+        Long previousOwner = incident.getAssignedTechnician() == null ? null : incident.getAssignedTechnician().getId();
+        if (previousOwner != null && (reason == null || reason.trim().length() < 5 || reason.trim().length() > 2000))
+            throw new IllegalArgumentException("Provide a reassignment reason of 5–2000 characters.");
+        String justification = previousOwner == null ? "Initial assignment." : reason.trim();
         Technician technician;
-        if (automatic) {
+            if (automatic) {
             incident.require(IncidentStatus.CLASSIFIED);
-            AssignmentStrategy strategy = settings.findById(1L).orElseThrow().getStrategy() == AssignmentSettings.Mode.SKILL_BASED ? new SkillBasedAssignment() : new LoadBasedAssignment();
+            boolean generalSupport = Incident.Category.OTHER.equals(incident.getCategory());
+            if (incident.requiredSkill()==null && !generalSupport) throw new IllegalStateException("Configure the category's required skill and review classification before automatic assignment.");
+            AssignmentStrategy strategy = generalSupport ? new RandomAvailableAssignment()
+                    : settings.findById(1L).orElseThrow().getStrategy() == AssignmentSettings.Mode.SKILL_BASED ? new SkillBasedAssignment() : new LoadBasedAssignment();
             technician = strategy.assign(incident, workloads.candidates(incident)).orElseThrow(() -> new IllegalStateException("No eligible technician available. Incident remains classified and awaiting assignment."));
         } else technician = eligible(incident, technicianId, incident.requiredSkill());
         String previous = incident.getAssignedTechnician() == null ? "Unassigned" : incident.getAssignedTechnician().getId().toString();
         if (incident.getStatus() == IncidentStatus.CLASSIFIED) incident.assign(technician); else incident.reassign(technician);
-        incident.record(user, automatic ? "AUTO_ASSIGNED" : "ASSIGNED", "Assigned to " + technician.getName() + ".", STUDENT_VISIBLE);
+        incident.record(user, automatic ? "AUTO_ASSIGNED" : "ASSIGNED", "Assigned to " + technician.getName() + ". Reason: " + justification, STUDENT_VISIBLE);
         incidents.flush();
-        events.publish(id, user.getId(), automatic ? "AUTO_ASSIGNED" : "ASSIGNED", previous, technician.getId().toString(), "Assigned to " + technician.getName() + ".");
+        events.publishTo(id, user.getId(), automatic ? "AUTO_ASSIGNED" : "ASSIGNED", previous, technician.getId().toString(), "Assigned to " + technician.getName() + ". Reason: " + justification,
+                previousOwner == null ? Set.of() : Set.of(previousOwner));
     }
     @Transactional public RequestView transfer(Long id, Transfer request, String email) {
         User user = actor(email, Role.TECHNICIAN); Incident incident = locked(id); primary(incident, user); incident.requireAssignableTeam();

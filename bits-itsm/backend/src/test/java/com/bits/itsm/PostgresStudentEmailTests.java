@@ -52,7 +52,7 @@ class PostgresStudentEmailTests {
     }
     @Test void queuesExactlyThreeReporterEventsAndDeduplicates() {
         long id = create();
-        service.classify(id, new IncidentData.Classification(Incident.Category.NETWORK), email("admin01"));
+        service.adminReclassify(id, new IncidentData.AdminCorrection(Incident.ItService.CAMPUS_WIFI, Incident.Category.NETWORK, Incident.Level.HIGH, Incident.Level.MEDIUM, "Administrator reviewed incident severity."), email("admin01"));
         long tech = users.findByEmail(email("technician04")).orElseThrow().getId();
         assignments.profile(tech, new AssignmentData.Profile(Set.of(TechnicianSkill.NETWORK), Technician.Availability.AVAILABLE, 100), email("admin01"));
         assignments.assign(id, tech, false, email("admin01"));

@@ -45,5 +45,7 @@ public class NotificationDelivery {
     public Instant getReadAt() { return readAt; }
     public String getDeliveryStatus() { return deliveryStatus; }
     public void markRead() { if (readAt == null) readAt = Instant.now(); }
-    public InAppNotification view() { return new InAppNotification(id, recipientId, type, incidentId, title, message, createdAt, readAt != null); }
+    public InAppNotification view(String incidentTitle) {
+        return new InAppNotification(id, recipientId, type, incidentId, title, message, createdAt, readAt != null, incidentTitle);
+    }
 }

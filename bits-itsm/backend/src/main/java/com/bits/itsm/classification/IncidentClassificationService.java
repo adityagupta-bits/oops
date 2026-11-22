@@ -75,7 +75,7 @@ public class IncidentClassificationService {
         }
         String normalized = text.toLowerCase(Locale.ROOT);
         List<CatalogEntry> activeServices = catalog.all().stream()
-                .filter(c -> c.isEnabled() && "SERVICE".equals(c.getKind()))
+                .filter(c -> c.isEnabled() && c.getCriticality() != null && "SERVICE".equals(c.getKind()))
                 .toList();
 
         CatalogEntry bestEntry = null;
@@ -95,16 +95,10 @@ public class IncidentClassificationService {
             List<String> keywords = new ArrayList<>();
             if (entry.getKeywords() != null && !entry.getKeywords().isBlank()) {
                 keywords.addAll(Arrays.stream(entry.getKeywords().split("[,;]"))
-                        .map(String::trim)
+                        .map(s -> s.trim().toLowerCase(Locale.ROOT))
                         .filter(s -> !s.isEmpty())
+                        .distinct()
                         .toList());
-            }
-            // Add label keywords if not already included
-            String label = entry.getLabel().toLowerCase(Locale.ROOT);
-            for (String part : label.split("\\s+")) {
-                if (part.length() > 3 && !keywords.contains(part)) {
-                    keywords.add(part);
-                }
             }
 
             List<String> matched = new ArrayList<>();
@@ -187,17 +181,22 @@ public class IncidentClassificationService {
     }
 
     public Category determineCategory(String title, String description, ItService detectedService) {
+        String evidence = (title + " " + description).toLowerCase(Locale.ROOT);
+        var categoryMatches = catalog.all().stream().filter(c -> "CATEGORY".equals(c.getKind()) && c.isEnabled()
+                && countMatches(evidence,c.getKeywords()) > 0).toList();
+        if (categoryMatches.size() == 1) return Category.valueOf(categoryMatches.getFirst().getCode());
+        if (categoryMatches.size() > 1) return Category.OTHER;
         CategorySuggester.Suggestion suggestion = categorySuggester.suggest(title, description);
-        if (suggestion != null && suggestion.category() != null && suggestion.category() != Category.OTHER) {
+        if (suggestion != null && suggestion.category() != null && !suggestion.category().equals(Category.OTHER)) {
             return suggestion.category();
         }
         if (detectedService != null) {
-            return switch (detectedService) {
-                case CAMPUS_WIFI, CAMPUS_NETWORK -> Category.NETWORK;
-                case LAB_COMPUTERS -> Category.HARDWARE;
-                case AUTHENTICATION -> Category.AUTHENTICATION;
-                case STUDENT_PORTAL, LIBRARY, EMAIL -> Category.APPLICATION;
-                case OTHER -> Category.OTHER;
+            return switch (detectedService.name()) {
+                case "CAMPUS_WIFI", "CAMPUS_NETWORK" -> Category.NETWORK;
+                case "LAB_COMPUTERS" -> Category.HARDWARE;
+                case "AUTHENTICATION" -> Category.AUTHENTICATION;
+                case "STUDENT_PORTAL", "LIBRARY", "EMAIL" -> Category.APPLICATION;
+                default -> Category.OTHER;
             };
         }
         return Category.OTHER;
@@ -222,6 +221,24 @@ public class IncidentClassificationService {
         Category category = determineCategory(incident.getTitle(), incident.getDescription(), detectedService);
 
         boolean serviceIdentified = detectedService != null && !serviceDetection.ambiguous();
+        boolean generalSupportFallback = !serviceDetection.ambiguous() && detectedService == null
+                && Category.OTHER.equals(incident.getReportedCategory());
+        if (generalSupportFallback) {
+            category = Category.OTHER;
+            try {
+                CatalogEntry fallback = catalog.get("SERVICE", "OTHER");
+                if (fallback != null && fallback.isEnabled() && fallback.getCriticality() != null) {
+                    detectedService = ItService.valueOf(fallback.getCode());
+                    serviceDetection = new DetectionResult(detectedService, fallback, 0, false, List.of("configured general-support fallback"));
+                    serviceIdentified = true;
+                    // These explicit administrator-configured defaults apply only to general support.
+                    if (impact == null) impact = settings.getDefaultImpact();
+                    if (urgency == null) urgency = settings.getDefaultUrgency();
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Missing or invalid fallback configuration stays in the normal review path.
+            }
+        }
         CatalogEntry entry = null;
         if (serviceIdentified) {
             try {
@@ -231,14 +248,18 @@ public class IncidentClassificationService {
             }
         }
         boolean criticalityConfigured = entry != null && entry.getCriticality() != null;
+        boolean conflictingHint = detectedService != null && incident.getReportedService() != null
+                && !detectedService.equals(incident.getReportedService());
+        boolean conflictingScope = Integer.valueOf(1).equals(incident.getReportedAffectedUsers()) && (impact==Level.HIGH || impact==Level.MEDIUM);
 
-        if (!serviceIdentified || !criticalityConfigured || urgency == null || impact == null) {
-            String reason = !serviceIdentified
+        if (!serviceIdentified || !criticalityConfigured || urgency == null || impact == null || conflictingHint || conflictingScope) {
+            String reason = conflictingScope ? "Reported affected-person count conflicts with the described scope. Administrator review required." : conflictingHint ? "Reported service conflicts with the service detected from configured keywords. Administrator review required." : generalSupportFallback && !serviceIdentified
+                    ? "The configured general-support fallback service must be enabled and have valid business criticality. Administrator review required." : !serviceIdentified
                     ? (serviceDetection.ambiguous()
                         ? "Ambiguous service keywords match multiple IT services. Administrator review required."
                         : "No matching IT service could be detected with certainty from problem description. Administrator review required.")
                     : !criticalityConfigured ? "Detected service (" + detectedService.getLabel() + ") has no business criticality configured. Administrator review required."
-                    : "Insufficient evidence to determine impact or urgency. Administrator review required.";
+                    : "Insufficient evidence or configured fallback to determine impact or urgency. Administrator review required.";
 
             incident.flagForClassificationReview(reason, category, detectedService, urgency, impact);
             audit.save(new AuditRecord("AUD-" + UUID.randomUUID(), Instant.now(), null, incident.getId(),
@@ -248,19 +269,36 @@ public class IncidentClassificationService {
         }
 
         Level criticality = entry.getCriticality();
-        Priority calculated = priorities.current().calculator().calculate(impact, urgency, criticality);
+        var prioritySettings = priorities.current();
+        Priority calculated = prioritySettings.calculator().calculate(impact, urgency, criticality);
 
         incident.applyAutoClassification(category, detectedService, impact, urgency, criticality, calculated);
+        Category finalCategory = category;
+        catalog.all().stream().filter(c -> "CATEGORY".equals(c.getKind()) && c.getCode().equals(finalCategory.name()))
+                .findFirst().ifPresent(c -> incident.captureClassifiedSkill(c.getRequiredSkill()));
         slaPolicies.capture(incident);
 
-        String strategyName = priorities.current().getStrategy().name();
+        String strategyName = prioritySettings.getStrategy().name();
         String desc = "Automatically classified using " + strategyName + " model. Service: " + detectedService.getLabel()
                 + ", Category: " + category + ", Impact: " + impact + ", Urgency: " + urgency
-                + ", Criticality: " + criticality + " -> Priority: " + calculated;
+                + ", Criticality: " + criticality + " -> Priority: " + calculated
+                + ". SLA response: " + incident.getResponseDeadline() + ", resolution: " + incident.getResolutionDeadline();
+        String evidence = "Service keyword matches: " + serviceDetection.matchedKeywords()
+                + "; reported urgency=" + incident.getReportedUrgency() + "; evaluated urgency=" + urgency
+                + "; urgency rules HIGH=" + settings.getHighUrgencyKeywords() + ", LOW=" + settings.getLowUrgencyKeywords()
+                + "; impact rules HIGH=" + settings.getHighImpactKeywords() + ", MEDIUM=" + settings.getMediumImpactKeywords();
+        recordEvidence(incident,"CLASSIFICATION_EVIDENCE",evidence);
+        recordEvidence(incident,"PRIORITY_CONFIGURATION_SNAPSHOT",String.valueOf(prioritySettings.configuration()));
 
         audit.save(new AuditRecord("AUD-" + UUID.randomUUID(), Instant.now(), null, incident.getId(),
                 "AUTO_CLASSIFIED", "PENDING", calculated.name(), desc));
         incident.record(reporter, "AUTO_CLASSIFIED", desc, InvestigationNote.Visibility.STUDENT_VISIBLE);
+    }
+
+    private void recordEvidence(Incident incident,String action,String text) {
+        int parts=Math.max(1,(text.length()+4499)/4500);
+        for(int part=0;part<parts;part++) audit.save(new AuditRecord("AUD-"+UUID.randomUUID(),Instant.now(),null,incident.getId(),
+                action,null,incident.getPriority().name(),"Part "+(part+1)+"/"+parts+": "+text.substring(part*4500,Math.min(text.length(),(part+1)*4500))));
     }
 
     public Incident reclassify(Incident incident, ItService service, Category category,
@@ -273,6 +311,8 @@ public class IncidentClassificationService {
             throw new IllegalArgumentException("Audit reason must contain at least 5 characters.");
         }
 
+        catalog.requireEnabled("SERVICE", service.name());
+        if (category != null) catalog.requireEnabled("CATEGORY", category.name());
         CatalogEntry entry = catalog.get("SERVICE", service.name());
         if (entry.getCriticality() == null) {
             throw new IllegalStateException("Service " + service.getLabel() + " has no business criticality configured.");
@@ -283,19 +323,23 @@ public class IncidentClassificationService {
         Priority calculated = priorities.current().calculator().calculate(impact, urgency, criticality);
 
         String previousPriority = incident.getPriority() != null ? incident.getPriority().name() : "PENDING";
+        String previousSla = "response=" + incident.getResponseDeadline() + ", resolution=" + incident.getResolutionDeadline();
         incident.adminClassify(finalCategory, service, impact, urgency, criticality, calculated);
+        incident.captureClassifiedSkill(catalog.all().stream().filter(c -> "CATEGORY".equals(c.getKind()) && c.getCode().equals(finalCategory.name()))
+                .map(CatalogEntry::getRequiredSkill).filter(Objects::nonNull).findFirst().orElse(null));
 
         // Recalculate SLA targets
-        SlaPolicy slaPolicy = slaPolicyRepo.findById(calculated).orElse(null);
-        if (slaPolicy != null) {
-            incident.resetSla(slaPolicy);
-        }
+        SlaPolicy slaPolicy = slaPolicyRepo.findById(calculated).orElseThrow(
+                () -> new IllegalStateException("SLA policy is missing for " + calculated + ". Configure the policy before classification."));
+        incident.resetSla(slaPolicy);
 
         String strategyName = priorities.current().getStrategy().name();
         String auditDesc = "Administrator corrected classification. Reason: " + reason.trim()
                 + "\nStrategy: " + strategyName + ", Service: " + service.getLabel()
                 + ", Criticality: " + criticality + ", Impact: " + impact + ", Urgency: " + urgency
-                + " -> Calculated Priority: " + calculated;
+                + " -> Calculated Priority: " + calculated
+                + "\nPrevious SLA: " + previousSla + "; corrected SLA: response=" + incident.getResponseDeadline()
+                + ", resolution=" + incident.getResolutionDeadline();
 
         audit.save(new AuditRecord("AUD-" + UUID.randomUUID(), Instant.now(), admin.getId(), incident.getId(),
                 "INCIDENT_CORRECTED_AND_RECLASSIFIED", previousPriority, calculated.name(), auditDesc));

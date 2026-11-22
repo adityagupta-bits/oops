@@ -1,0 +1,35 @@
+.tech-availability { background: #fff; border: 1px solid #dfe6ee; border-radius: 12px; padding: 22px; margin-bottom: 22px; color: #17243a; }
+.tech-availability header { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 19px; }
+.tech-availability-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #658094; }
+.tech-availability h3 { margin: 5px 0 6px; font-size: 19px; letter-spacing: -.02em; }
+.tech-availability header p { margin: 0; color: #718096; font-size: 13px; line-height: 1.5; }
+.tech-availability-save { font-size: 11px; color: #7a8b9b; white-space: nowrap; }
+.tech-availability-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.tech-availability-option { display: flex; align-items: center; gap: 12px; min-height: 78px; padding: 16px; text-align: left; background: #fff; border: 1px solid #dce3ec; border-radius: 9px; color: #263b53; font-family: inherit; cursor: pointer; }
+.tech-availability-option:hover:not(:disabled) { background: #f8fafc; border-color: #9bb0c3; }
+.tech-availability-option.selected { border-color: #7293ae; box-shadow: inset 0 0 0 1px #7293ae; background: #f6f9fc; }
+.tech-availability-option:disabled { cursor: wait; opacity: .65; }
+.tech-availability-option:focus-visible, .tech-availability-retry:focus-visible, .tech-status-link:focus-visible { outline: 3px solid #88b4d3; outline-offset: 3px; }
+.tech-availability-icon { flex-shrink: 0; display: grid; place-items: center; width: 34px; height: 34px; background: #eef3f7; border-radius: 50%; color: #6c7d8f; font-size: 20px; }
+.available .tech-availability-icon { background: #eaf5ef; color: #367b58; }.busy .tech-availability-icon { background: #fbf3e3; color: #a37a2f; }
+.tech-availability-copy { display: grid; gap: 5px; flex: 1; min-width: 0; }.tech-availability-copy strong { font-size: 14px; }.tech-availability-copy small { font-size: 11px; line-height: 1.4; color: #718096; }
+.tech-availability-check { width: 17px; color: #527b99; font-weight: 700; }
+.tech-availability-guidance { font-size: 12px; line-height: 1.6; color: #65788c; margin: 14px 0 0; }
+.tech-availability-error { color: #b3434f; font-size: 12px; margin: 10px 0 0; }.tech-availability-confirmation { color: #3b785e; font-size: 12px; margin: 10px 0 0; }
+.tech-availability-retry { color: #3c7494; background: none; border: 0; padding: 10px 0; cursor: pointer; }
+.technician-portal .dashboard-user-area { display: flex; align-items: center; gap: 14px; min-width: 0; flex-shrink: 0; }
+.technician-portal .dashboard-profile { gap: 10px; min-width: 0; padding: 0; border: 0; background: transparent; }
+.technician-portal .technician-header-profile-copy { display: block; min-width: 0; }
+.technician-portal .dashboard-profile > div > span { white-space: nowrap; }
+.tech-status-link { display: inline-flex; align-items: center; padding: 0; border: 0; background: transparent; color: #64748b; font: inherit; cursor: pointer; white-space: nowrap; }
+.tech-status-link:hover { color: #334b61; }
+.technician-availability-indicator { display: inline-flex; align-items: center; gap: 6px; color: #5e7183; font-size: 11px; font-weight: 500; line-height: 1.35; white-space: nowrap; }
+.technician-availability-indicator i { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #93a1ad; }
+.technician-availability-indicator.available i { background: #4b9168; }
+.technician-availability-indicator.busy i { background: #b58a36; }
+.technician-availability-indicator.unavailable i { background: #8b6870; }
+.technician-availability-indicator.unknown i { display: none; }
+.technician-profile-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+@media(max-width:900px) { .tech-availability-options { grid-template-columns: 1fr; }.tech-availability header { align-items: flex-start; flex-direction: column; gap: 8px; }.tech-availability-option { min-height: 68px; }.tech-availability { padding: 18px; } }
+@media(max-width:768px) { .technician-portal .dashboard-user-area { gap: 10px; }.technician-portal .dashboard-profile > div { display: block; } }
+@media(max-width:600px) { .technician-portal .dashboard-profile { gap: 8px; }.tech-status-link .technician-availability-indicator { font-size: 10px; }.technician-portal .dashboard-profile strong { font-size: 12px; }.technician-portal .dashboard-profile > div > span { font-size: 10px; } }

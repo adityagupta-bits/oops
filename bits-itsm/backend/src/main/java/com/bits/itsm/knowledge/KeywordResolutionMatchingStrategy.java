@@ -29,7 +29,7 @@ public final class KeywordResolutionMatchingStrategy implements ResolutionMatchi
         double lexical = TITLE_WEIGHT * titleOverlap + DESCRIPTION_WEIGHT * descriptionOverlap;
         if (lexical == 0) return 0;
         double service = current.getAffectedService() != null && current.getAffectedService() == historical.getAffectedService() ? SERVICE_WEIGHT : 0;
-        double category = current.getCategory() != null && current.getCategory() == historical.getCategory() ? CATEGORY_WEIGHT : 0;
+        double category = current.getCategory() != null && current.getCategory().equals(historical.getCategory()) ? CATEGORY_WEIGHT : 0;
         return Math.min(1, lexical * (1 - SERVICE_WEIGHT - CATEGORY_WEIGHT) + service + category);
     }
 

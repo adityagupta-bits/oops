@@ -43,8 +43,9 @@ class PostgresIncidentTests {
     }
     Map<String, Object> payload() { return Map.of("title", "Network problem", "description", "Campus network is unavailable in the library.", "category", "NETWORK", "affectedService", "CAMPUS_WIFI", "impact", "HIGH", "urgency", "MEDIUM", "reporterId", 99999, "status", "CLOSED", "assignedTechnician", 99999); }
     long create() throws Exception { return postAs("student01", "", payload(), 201).get("id").asLong(); }
+    Map<String, Object> review(String category) { return Map.of("category", category, "affectedService", "CAMPUS_WIFI", "impact", "HIGH", "urgency", "MEDIUM", "reason", "Administrator reviewed the reported impact and urgency."); }
     void assign(long id) throws Exception {
-        postAs("admin01", "/" + id + "/classify", Map.of("category", "NETWORK"), 200);
+        postAs("admin01", "/" + id + "/reclassify", review("NETWORK"), 200);
         postAs("admin01", "/" + id + "/assign", Map.of("technicianId", users.findByEmail(email("technician04")).orElseThrow().getId()), 200);
     }
     void investigate(long id) throws Exception { assign(id); postAs("technician04", "/" + id + "/acknowledge", Map.of(), 200); postAs("technician04", "/" + id + "/start", Map.of(), 200); }
@@ -93,8 +94,8 @@ class PostgresIncidentTests {
         postAs("student01", "/" + id + "/feedback", Map.of("rating", 4), 409);
         JsonNode saved = getAs("student01", "/" + id, 200);
         assertEquals("CLOSED", saved.get("status").asText()); assertEquals(5, saved.get("feedback").get("rating").asInt());
-        assertEquals(10, saved.get("history").size());
-        assertTrue(saved.get("history").toString().contains("PRIORITY_ASSIGNED"));
+        assertEquals(11, saved.get("history").size());
+        assertTrue(saved.get("history").toString().contains("ADMIN_RECLASSIFIED"));
         assertFalse(saved.get("closedAt").isNull()); assertFalse(saved.get("verifiedAt").isNull());
         postAs("technician04", "/" + id + "/start", Map.of(), 409);
         assertEquals(saved.get("history"), getAs("admin01", "/" + id, 200).get("history"));
@@ -118,7 +119,7 @@ class PostgresIncidentTests {
         resolve(id); postAs("student01", "/" + id + "/verify", Map.of("confirmed", true), 200);
     }
     @Test void assignmentRejectsStudentsDisabledAndUnavailableTechnicians() throws Exception {
-        long id = create(); postAs("admin01", "/" + id + "/classify", Map.of("category", "HARDWARE"), 200);
+        long id = create(); postAs("admin01", "/" + id + "/reclassify", review("HARDWARE"), 200);
         JsonNode historyBefore = getAs("admin01", "/" + id, 200).get("history");
         postAs("admin01", "/" + id + "/assign", Map.of("technicianId", users.findByEmail(email("student02")).orElseThrow().getId()), 400);
         Technician technician = (Technician) users.findByEmail(email("technician04")).orElseThrow();
@@ -133,7 +134,7 @@ class PostgresIncidentTests {
     }
     @Test void adminSlaUsesCapturedDeadlinesAndRejectsOtherRoles() throws Exception {
         long id = create();
-        JsonNode incident = postAs("admin01", "/" + id + "/classify", Map.of("category", "NETWORK"), 200);
+        JsonNode incident = postAs("admin01", "/" + id + "/reclassify", review("NETWORK"), 200);
         var response = mvc.perform(get("/api/admin/sla").with(user(email("admin01")).roles("ADMIN")))
                 .andExpect(status().isOk()).andReturn();
         JsonNode row = java.util.stream.StreamSupport.stream(json.readTree(response.getResponse().getContentAsString()).spliterator(), false)
@@ -154,7 +155,7 @@ class PostgresIncidentTests {
         Map<String, String> change = Map.of("title", "Updated network problem", "description", "The library network is unavailable on both my devices.");
         postAs("student02", "/" + id + "/edit", change, 403);
         assertEquals("Updated network problem", postAs("student01", "/" + id + "/edit", change, 200).get("title").asText());
-        postAs("admin01", "/" + id + "/classify", Map.of("category", "NETWORK"), 200);
+        postAs("admin01", "/" + id + "/reclassify", review("NETWORK"), 200);
         postAs("student01", "/" + id + "/edit", change, 409);
     }
 }

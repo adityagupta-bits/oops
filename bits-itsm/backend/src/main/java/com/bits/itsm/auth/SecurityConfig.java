@@ -69,7 +69,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(access -> access
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/login", "/student", "/student/**", "/admin", "/admin/**", "/technician", "/technician/**").permitAll()
-                        .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/register").permitAll()
+                        .requestMatchers("/api/health", "/api/auth/csrf", "/api/auth/login", "/api/auth/register", "/api/auth/reset-password", "/api/auth/password-capabilities").permitAll()
                         .requestMatchers("/api/student/**").hasRole("STUDENT")
                         .requestMatchers("/api/technician/**").hasRole("TECHNICIAN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

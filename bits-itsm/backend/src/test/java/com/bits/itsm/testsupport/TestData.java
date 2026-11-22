@@ -141,6 +141,12 @@ public final class TestData {
         }
 
         @Override
+        public Map<Long, String> findTitlesByIds(List<Long> ids) {
+            return ids.stream().filter(store::containsKey)
+                    .collect(java.util.stream.Collectors.toMap(id -> id, id -> store.get(id).title()));
+        }
+
+        @Override
         public List<Long> adminIds() {
             return admins;
         }

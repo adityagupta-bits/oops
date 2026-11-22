@@ -1,6 +1,7 @@
 package com.bits.itsm.support;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -11,6 +12,8 @@ public interface IncidentLookup {
     Optional<IncidentSnapshot> findById(Long id);
 
     List<IncidentSnapshot> findAll();
+
+    Map<Long, String> findTitlesByIds(List<Long> ids);
 
     /** Ids of all enabled administrators (they receive operational notifications). */
     List<Long> adminIds();

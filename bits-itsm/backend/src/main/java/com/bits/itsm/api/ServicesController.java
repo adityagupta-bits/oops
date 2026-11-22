@@ -94,6 +94,11 @@ public class ServicesController {
         return Map.of("read", true);
     }
 
+    @PostMapping("/notifications/read-all")
+    public Map<String, Integer> markAllNotificationsRead(Authentication auth) {
+        return Map.of("readCount", inApp.markAllRead(currentUserId(auth)));
+    }
+
     @GetMapping("/admin/audit")
     public List<AuditRecord> auditAll() {
         return audit.getAll();

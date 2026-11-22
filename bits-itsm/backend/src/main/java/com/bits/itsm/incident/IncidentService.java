@@ -26,6 +26,7 @@ public class IncidentService {
     private final com.bits.itsm.intelligence.CategorySuggester categories;
     private final com.bits.itsm.event.IncidentEventPublisher events;
     private final IncidentClassificationService classificationService;
+    private final com.bits.itsm.assignment.AssignmentService assignmentService;
 
     public IncidentService(IncidentRepository incidents, UserRepository users,
                            AssignmentSettingsRepository assignmentSettings, SlaPolicies slaPolicies,
@@ -34,12 +35,14 @@ public class IncidentService {
                            com.bits.itsm.event.IncidentEventPublisher events,
                            CatalogService catalog,
                            com.bits.itsm.intelligence.DuplicateDetector duplicates,
-                           IncidentClassificationService classificationService) {
+                           IncidentClassificationService classificationService,
+                           com.bits.itsm.assignment.AssignmentService assignmentService) {
         this.incidents = incidents; this.users = users; this.assignmentSettings = assignmentSettings; this.slaPolicies = slaPolicies;
         this.priorities = priorities;
         this.categories = categories;
         this.events = events; this.catalog = catalog; this.duplicates = duplicates;
         this.classificationService = classificationService;
+        this.assignmentService = assignmentService;
     }
 
     private User actor(String email) {
@@ -68,7 +71,7 @@ public class IncidentService {
     public Options options(String email) {
         actor(email);
         return new Options(catalog.all().stream().filter(c -> c.isEnabled() && c.getKind().equals("CATEGORY")).map(c -> new Option(c.getCode(), c.getLabel())).toList(),
-                catalog.all().stream().filter(c -> c.isEnabled() && c.getKind().equals("SERVICE")).map(c -> new Option(c.getCode(), c.getLabel())).toList());
+                catalog.all().stream().filter(c -> c.isEnabled() && c.getCriticality() != null && c.getKind().equals("SERVICE")).map(c -> new Option(c.getCode(), c.getLabel())).toList());
     }
     public List<View> list(String email, boolean mine, String search, IncidentStatus status, Incident.Category category, Incident.Priority priority) {
         User user = actor(email);
@@ -79,7 +82,7 @@ public class IncidentService {
             case ADMIN -> incidents.findAllByOrderByCreatedAtDesc();
         };
         String query = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
-        return found.stream().filter(i -> (status == null || i.getStatus() == status) && (category == null || i.getCategory() == category)
+        return found.stream().filter(i -> (status == null || i.getStatus() == status) && (category == null || java.util.Objects.equals(i.getCategory(), category))
                 && (priority == null || i.getPriority() == priority)
                 && (i.getTitle().toLowerCase(Locale.ROOT).contains(query) || i.getId().toString().contains(query)))
                 .map(i -> view(i, user)).toList();
@@ -97,21 +100,46 @@ public class IncidentService {
     @Transactional
     public View create(Create request, String email) {
         User user = actor(email); role(user, Role.STUDENT);
+        if (request.category() == null) throw new IllegalArgumentException("Select an incident category.");
+        catalog.requireEnabled("CATEGORY", request.category().name());
         Incident incident = new Incident(request.title(), request.description(), (Student) user,
                 Incident.Category.OTHER, null, null, null);
+        incident.captureReportedContext(request.category(), request.urgency());
+        if (request.affectedService() != null) {
+            catalog.requireEnabled("SERVICE", request.affectedService().name());
+            if (catalog.get("SERVICE", request.affectedService().name()).getCriticality() == null)
+                throw new IllegalArgumentException("Selected service is not configured. Choose another service or Not sure.");
+        }
+        incident.captureServiceHint(request.affectedService());
+        incident.captureReportedAffectedUsers(request.affectedUsers());
         incident.record(user, "CREATED", "Incident reported.", STUDENT_VISIBLE);
         incidents.saveAndFlush(incident);
         events.publish(incident.getId(), user.getId(), "CREATED", null, "NEW", "Incident reported.");
 
         // Automatic backend classification
         classificationService.processSubmission(incident, user);
+        incident.record(user, "REPORTED_CONTEXT", "Reported category: " + request.category()
+                + "; reported affected people (unverified): " + request.affectedUsers()
+                + "; service hint: " + (request.affectedService() == null ? "Not supplied" : request.affectedService().name())
+                + "; reported urgency: " + (request.urgency() == null ? "Not supplied" : request.urgency())
+                + ". Calculated urgency: " + (incident.getUrgency() == null ? "Awaiting evidence/review" : incident.getUrgency())
+                + ". Backend rules evaluate urgency independently of the student's suggestion.", STUDENT_VISIBLE);
         // Already managed: flush the appended history without merging persist-only children.
         incidents.flush();
 
         if (incident.isAutoClassified()) {
+            events.publish(incident.getId(), null, "CLASSIFIED", "Service classified automatically from configured keywords.");
             events.publish(incident.getId(), user.getId(), "PRIORITY_CHANGED", "PENDING", incident.getPriority().name(),
                     "Automatically classified: " + incident.getPriority());
+        } else if (incident.isNeedsClassificationReview()) {
+            var admins = users.findAll().stream().filter(u -> u.isEnabled() && u.getRole() == Role.ADMIN)
+                    .map(User::getId).collect(java.util.stream.Collectors.toSet());
+            events.publishTo(incident.getId(), null, "CLASSIFICATION_REVIEW_REQUIRED", null, "Pending Classification",
+                    incident.getClassificationNotes(), admins);
         }
+
+        // Complete eligible assignment synchronously as part of submission; the scheduled worker remains a retry path.
+        if (incident.isAutoClassified()) assignmentService.assignPending(incident.getId());
 
         duplicates.check(incident.getId());
         return view(incident, user);
@@ -119,11 +147,13 @@ public class IncidentService {
     @Transactional
     public View classify(Long id, Classification request, String email) {
         User user = actor(email); Incident incident = editable(id, user, Role.ADMIN);
-        if (incident.getAffectedService() == null) {
-            throw new IllegalStateException("Affected service is not yet determined. Use adminReclassify to provide service and severity.");
+        catalog.requireEnabled("CATEGORY",request.category().name());
+        if (incident.getAffectedService() == null || incident.getImpact() == null || incident.getUrgency() == null) {
+            throw new IllegalStateException("Service, impact and urgency must be determined first. Use Classification Review to provide service and severity.");
         }
         Incident.Level criticality = priorities.criticality(incident.getAffectedService());
         incident.classify(request.category(), priorities.calculate(incident, criticality));
+        incident.captureClassifiedSkill(catalog.get("CATEGORY",request.category().name()).getRequiredSkill());
         incident.captureCriticality(criticality);
         slaPolicies.capture(incident);
         events.publish(id, user.getId(), "PRIORITY_CHANGED", "PENDING", incident.getPriority().name(), "Calculated using " + priorities.current().getStrategy() + "; criticality: " + criticality);
@@ -136,7 +166,8 @@ public class IncidentService {
         Incident incident = incidents.findForUpdate(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Incident not found."));
         String previousPriority = incident.getPriority() != null ? incident.getPriority().name() : "PENDING";
         classificationService.reclassify(incident, request.affectedService(), request.category(), request.impact(), request.urgency(), request.reason(), user);
-        incidents.saveAndFlush(incident);
+        // The locked incident is already managed; merging loses persist-only history associations.
+        incidents.flush();
         events.publish(id, user.getId(), "PRIORITY_CHANGED", previousPriority, incident.getPriority().name(),
                 "Administrator updated classification: " + request.reason());
         return view(incident, user);
@@ -155,6 +186,11 @@ public class IncidentService {
     @Transactional
     public View start(Long id, String email) {
         User user = actor(email); Incident incident = editable(id, user, Role.TECHNICIAN);
+        if (incident.getStatus() == IncidentStatus.ASSIGNED) {
+            incident.acknowledge();
+            incident.record(user, "ACKNOWLEDGED", "Technician acknowledged the incident by starting work.", STUDENT_VISIBLE);
+            events.publish(id, user.getId(), "ACKNOWLEDGED", "Technician started work.");
+        }
         incident.start(); return finish(incident, user, "INVESTIGATION_STARTED", "Investigation started.");
     }
     @Transactional
@@ -171,9 +207,17 @@ public class IncidentService {
     public View information(Long id, Message request, String email, boolean reply) {
         User user = actor(email); Incident incident = editable(id, user, reply ? Role.STUDENT : Role.TECHNICIAN);
         incident.require(IncidentStatus.IN_PROGRESS);
-        if (reply && incident.getNotes().stream().noneMatch(n -> n.getKind() == INFORMATION_REQUEST)) throw new IllegalStateException("There is no information request to reply to.");
+        if (reply && !incident.isAwaitingStudent()) throw new IllegalStateException("There is no outstanding information request to reply to.");
+        if (!reply && incident.isAwaitingStudent()) throw new IllegalStateException("An information request is already awaiting the student. Resume with a reason before requesting again.");
         incident.addNote(user, request.content(), STUDENT_VISIBLE, reply ? STUDENT_REPLY : INFORMATION_REQUEST);
         return finish(incident, user, reply ? "STUDENT_REPLIED" : "INFORMATION_REQUESTED", reply ? "Student replied to support." : "Technician requested additional information.");
+    }
+    @Transactional public View resumeWithoutReply(Long id,Message request,String email) {
+        User user=actor(email); Incident incident=editable(id,user,Role.TECHNICIAN);
+        incident.require(IncidentStatus.IN_PROGRESS);
+        if(!incident.isAwaitingStudent()) throw new IllegalStateException("This incident is not awaiting a student reply.");
+        String reason=Incident.text(request.content(),5,2000);
+        return finish(incident,user,"RESUMED_WITHOUT_REPLY","Investigation resumed without student response. Reason: " + reason + ". Original SLA deadlines retained.");
     }
     @Transactional
     public View resolve(Long id, Resolution request, String email) {
@@ -201,10 +245,41 @@ public class IncidentService {
         incident.close(); return finish(incident, user, "CLOSED", "Administrator closed the verified incident.");
     }
     @Transactional
+    public View dispose(Long id, Disposition request, String email) {
+        User user = actor(email);
+        boolean withdrawal = request.kind() == ClosureKind.WITHDRAWN;
+        Incident incident = editable(id, user, withdrawal ? Role.STUDENT : Role.ADMIN);
+        String reason = Incident.text(request.reason(), 5, 2000);
+        if (request.kind() == null) throw new IllegalArgumentException("Choose a closure reason.");
+        if (request.kind() == ClosureKind.DUPLICATE) {
+            if (request.duplicateOf() == null || request.duplicateOf().equals(id))
+                throw new IllegalArgumentException("Choose a different existing incident as the original report.");
+            if (!incidents.existsById(request.duplicateOf())) throw new IllegalArgumentException("The original incident does not exist.");
+        } else if (request.duplicateOf() != null) throw new IllegalArgumentException("An original incident is only applicable to duplicate closure.");
+        String previous = incident.getStatus().name();
+        incident.closeWithoutResolution(withdrawal);
+        String action = "CLOSED_" + request.kind();
+        String detail = request.kind() + (request.duplicateOf() == null ? "" : " of incident #" + request.duplicateOf()) + ": " + reason;
+        incident.record(user, action, detail, STUDENT_VISIBLE);
+        incidents.flush();
+        events.publish(id, user.getId(), action, previous, "CLOSED", detail);
+        return view(incident, user);
+    }
+    @Transactional
     public View feedback(Long id, Feedback request, String email) {
         User user = actor(email); Incident incident = editable(id, user, Role.STUDENT);
         incident.giveFeedback((Student) user, request.rating(), request.comment());
         return finish(incident, user, "FEEDBACK_SUBMITTED", "Reporter submitted support feedback.");
+    }
+    @Transactional public View overridePriority(Long id,PriorityOverride request,String email) {
+        User user=actor(email); Incident incident=editable(id,user,Role.ADMIN);
+        String reason=Incident.text(request.reason(),5,2000);
+        String before=incident.getPriority().name(); incident.overridePriority(request.priority());
+        String explanation="Administrator override: " + before + " -> " + request.priority() + ". Reason: " + reason
+                + ". Existing SLA deadlines preserved: response=" + incident.getResponseDeadline() + ", resolution=" + incident.getResolutionDeadline();
+        incident.record(user,"PRIORITY_OVERRIDDEN",explanation,STUDENT_VISIBLE); incidents.flush();
+        events.publish(id,user.getId(),"PRIORITY_CHANGED",before,request.priority().name(),explanation);
+        return view(incident,user);
     }
     private View finish(Incident incident, User actor, String action, String description) {
         incident.record(actor, action, description, STUDENT_VISIBLE);
@@ -230,12 +305,16 @@ public class IncidentService {
                 .map(h -> new HistoryView(h.getId(), person(h.getActor()), h.getAction(), h.getDescription(), h.getCreatedAt())).toList();
         var f = i.getFeedback();
         String serviceLabel = i.getAffectedService() == null ? "Awaiting Classification" : i.getAffectedService().getLabel();
+        if (i.getAffectedService() != null) {
+            serviceLabel = catalog.all().stream().filter(c -> "SERVICE".equals(c.getKind()) && c.getCode().equals(i.getAffectedService().name()))
+                    .map(CatalogEntry::getLabel).findFirst().orElse(serviceLabel);
+        }
         return new View(i.getId(), i.getTitle(), i.getDescription(), person(i.getReporter()), i.getCategory(), i.getAffectedService(),
                 serviceLabel, i.getImpact(), i.getUrgency(), i.getPriority(), i.getStatus(), person(i.getAssignedTechnician()),
                 i.getCreatedAt(), i.getUpdatedAt(), i.getAcknowledgedAt(), i.getResolvedAt(), i.getVerifiedAt(), i.getClosedAt(),
                 i.getResolutionSummary(), i.getResolutionSteps(), notes, history, f == null ? null : new FeedbackView(f.getRating(), f.getComment(), f.getCreatedAt()),
                 user.getRole() == Role.TECHNICIAN && i.isPrimary(user.getId()), student ? List.of() : i.getCollaborators().stream()
                     .map(c -> new TeamMember(person(c.getTechnician()), c.getResponsibility())).toList(), categories.suggest(i.getTitle(), i.getDescription()), i.getCriticality(), i.getResponseDeadline(), i.getResolutionDeadline(), i.responseSla(java.time.Instant.now()), i.resolutionSla(java.time.Instant.now()),
-                i.isNeedsClassificationReview(), i.isAutoClassified(), i.getClassificationNotes());
+                i.isNeedsClassificationReview(), i.isAutoClassified(), i.getClassificationNotes(), i.getReportedCategory(), i.getReportedUrgency(), i.isAwaitingStudent());
     }
 }

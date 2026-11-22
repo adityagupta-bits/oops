@@ -22,6 +22,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {"spring.datasource.url=${BITSOLVE_TEST_DB_URL}", "bitsolve.demo.seed-enabled=true", "spring.jpa.show-sql=false"})
 @AutoConfigureMockMvc @ActiveProfiles("dev")
 class PostgresAssignmentTests {
+    @org.junit.jupiter.api.Test void automaticAssignmentWaitsForEligibleCapacity() throws Exception {
+        long id=incident("NETWORK");
+        for (Technician t: users.findTechnicians()) {
+            t.setAvailability(Technician.Availability.UNAVAILABLE); users.saveAndFlush(t);
+        }
+        assertFalse(service.assignPending(id));
+        assertEquals("CLASSIFIED",jdbc.queryForObject("select status from incidents where id=?",String.class,id));
+        assertEquals(0,jdbc.queryForObject("select count(*) from incident_history where incident_id=? and action='AUTO_ASSIGNED'",Integer.class,id));
+        Technician t=(Technician)users.findByEmail(email("technician04")).orElseThrow();
+        t.setAvailability(Technician.Availability.AVAILABLE); users.saveAndFlush(t);
+        assertTrue(service.assignPending(id));
+        assertEquals(t.getId(),jdbc.queryForObject("select assigned_technician_id from incidents where id=?",Long.class,id));
+    }
+    @org.junit.jupiter.api.Test void automaticallyAssignsMatchingSkillOnceAndPreservesDeadlines() throws Exception {
+        long id=incident("NETWORK");
+        var before=jdbc.queryForMap("select response_deadline,resolution_deadline from incidents where id=?",id);
+        assertTrue(service.assignPending(id));
+        assertFalse(service.assignPending(id));
+        assertEquals(before,jdbc.queryForMap("select response_deadline,resolution_deadline from incidents where id=?",id));
+        assertEquals(1,jdbc.queryForObject("select count(*) from incidents i join technician_skills s on s.technician_id=i.assigned_technician_id join app_users u on u.id=i.assigned_technician_id where i.id=? and i.status='ASSIGNED' and s.skill='NETWORK' and u.enabled and u.availability <> 'UNAVAILABLE'",Integer.class,id));
+        assertEquals(1,jdbc.queryForObject("select count(*) from incident_history where incident_id=? and action='AUTO_ASSIGNED'",Integer.class,id));
+    }
     @org.junit.jupiter.api.BeforeEach void configureTestService() {
         // Explicit test fixture; production initialization never supplies criticality.
         testCatalog.update("SERVICE", "CAMPUS_WIFI", "Campus Wi-Fi", true, com.bits.itsm.incident.Incident.Level.MEDIUM);
@@ -45,7 +67,7 @@ class PostgresAssignmentTests {
     JsonNode get(String name, String path, int status) throws Exception { return call(name, "GET", path, Map.of(), status); }
     long incident(String category) throws Exception {
         long id = post("student01", "/api/incidents", Map.of("title", "Assignment test", "description", "The campus service is unavailable on my device.", "category", category, "affectedService", "CAMPUS_WIFI", "impact", "MEDIUM", "urgency", "HIGH"), 201).get("id").asLong();
-        post("admin01", "/api/incidents/" + id + "/classify", Map.of("category", category), 200); return id;
+        post("admin01", "/api/incidents/" + id + "/reclassify", Map.of("category", category, "affectedService", "CAMPUS_WIFI", "impact", "MEDIUM", "urgency", "HIGH", "reason", "Administrator reviewed assignment fixture."), 200); return id;
     }
     void assign(long id, String technician) throws Exception { post("admin01", "/api/incidents/" + id + "/assign", Map.of("technicianId", tech(technician)), 200); }
     long transfer(long id, String owner, String target) throws Exception { return post(owner, "/api/incidents/" + id + "/transfer-requests", Map.of("technicianId", tech(target), "reason", "EXCESSIVE_WORKLOAD", "handoverNotes", "Private transfer handover"), 200).get("id").asLong(); }

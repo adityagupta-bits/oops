@@ -21,6 +21,20 @@ public class CatalogService implements ApplicationRunner {
         jdbc.update("insert into catalog_entries(id, kind, code, label, enabled, criticality) values (?, ?, ?, ?, ?, null) on conflict (id) do nothing", kind + ":" + code, kind, code, label, !"SERVICE".equals(kind));
     }
     public List<CatalogEntry> all() { return em.createQuery("select c from CatalogEntry c order by c.kind, c.label", CatalogEntry.class).getResultList(); }
+    @Transactional public CatalogEntry createCategory(String code,String label,String keywords,boolean enabled,com.bits.itsm.user.TechnicianSkill skill) {
+        code=new ServiceCode(code).value();
+        jdbc.queryForObject("select pg_advisory_xact_lock(184527)",Object.class);
+        if(em.find(CatalogEntry.class,"CATEGORY:"+code)!=null) throw new IllegalArgumentException("A category with this code already exists.");
+        var entry=CatalogEntry.category(code,label,keywords,enabled,skill); em.persist(entry); em.flush(); return entry;
+    }
+    @Transactional public CatalogEntry createService(String code, String label, String description, String keywords, Incident.Level criticality, boolean enabled) {
+        code = new ServiceCode(code).value();
+        jdbc.queryForObject("select pg_advisory_xact_lock(184527)", Object.class);
+        if (em.find(CatalogEntry.class, "SERVICE:" + code) != null) throw new IllegalArgumentException("A service with this code already exists.");
+        var entry = CatalogEntry.service(code, label, enabled, criticality, keywords);
+        entry.setDescription(description);
+        em.persist(entry); em.flush(); return entry;
+    }
     public CatalogEntry get(String kind, String code) {
         CatalogEntry entry = em.find(CatalogEntry.class, kind + ":" + code);
         if (entry == null) throw new IllegalArgumentException("Unknown catalog entry.");
